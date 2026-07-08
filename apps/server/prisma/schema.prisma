@@ -1,0 +1,126 @@
+// Issue Board — 로컬 전용 SQLite 스키마
+// 상세 설계: docs/ARCHITECTURE.md §3
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  // 외부 Claude 세션이 cwd로 프로젝트를 매칭하기 위한 로컬 경로
+  repoPath    String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  plans      Plan[]
+  issues     Issue[]
+  wireframes Wireframe[]
+  domains    Domain[]
+}
+
+model Plan {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title     String
+  // 마크다운 기획서 본문 (사용자 편집 가능)
+  content   String
+  status    String   @default("draft") // draft | approved | archived
+  version   Int      @default(1) // 낙관적 잠금 + 현재 버전 번호
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  issues   Issue[]
+  versions PlanVersion[]
+
+  @@index([projectId])
+}
+
+// 기획 변경 이력 스냅샷 (버전 관리). 모든 create/update마다 한 행씩 쌓인다.
+// 기획 마일스톤 스냅샷. 매 편집이 아니라 승인/명시적 저장 시에만 생성된다.
+model PlanVersion {
+  id        String   @id @default(cuid())
+  planId    String
+  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  version   Int // 마일스톤 번호 (1,2,3…) — Plan.version(편집 카운터)과는 별개
+  title     String
+  content   String
+  status    String
+  label     String? // 스냅샷 사유/이름 (예: "승인", "MVP 범위 확정")
+  createdAt DateTime @default(now())
+
+  @@unique([planId, version])
+  @@index([planId])
+}
+
+model Issue {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  status    String   @default("todo") // todo | in_progress | done | blocked
+  priority  String   @default("medium") // low | medium | high
+  labels    String   @default("[]") // JSON 문자열 (SQLite는 배열 미지원)
+  // 이슈 트리 (기획 → 이슈 분리)
+  parentId  String?
+  parent    Issue?   @relation("IssueTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Issue[]  @relation("IssueTree")
+  // 연동: 파생된 기획, 관련 와이어프레임 화면(프로토타입의 data-screen id), 관련 도메인
+  planId    String?
+  plan      Plan?    @relation(fields: [planId], references: [id], onDelete: SetNull)
+  screenId  String?
+  domainId  String?
+  domain    Domain?  @relation(fields: [domainId], references: [id], onDelete: SetNull)
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([parentId])
+  @@index([planId])
+  @@index([domainId])
+}
+
+model Domain {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  // 컬럼 정의 배열 JSON: [{ name, type, constraints?, description? }]
+  columns     String   @default("[]")
+  // 첫 설계는 초안. draft | approved | archived
+  status      String   @default("draft")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  issues Issue[]
+
+  // 편집형 upsert: 프로젝트 내 이름은 유일
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model Wireframe {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  // 조회 전용 (편집 대상 아님) — html | excalidraw | mermaid | svg
+  format    String   @default("html")
+  content   String
+  // 같은 name의 재생성마다 증가. 삭제 대신 이력으로 보존한다.
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([projectId, name])
+}
