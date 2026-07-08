@@ -113,13 +113,37 @@ code {
 }
 
 /* 이슈 필터 바 */
+.issue-controls {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.issue-controls .filter-bar,
+.issue-controls .view-toggle {
+  margin-bottom: 0;
+}
 .filter-bar {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   margin-bottom: 14px;
   font-size: 13px;
   color: var(--muted);
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+}
+.filter-bar .filter-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .filter-bar select {
   background: var(--panel-2);
@@ -129,6 +153,122 @@ code {
   padding: 5px 10px;
   font-size: 13px;
   cursor: pointer;
+}
+/* 커스텀 드롭다운: 메뉴가 항상 트리거 바로 아래로 앵커(top:100%) */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+.dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  width: auto;
+}
+.dropdown-trigger:hover,
+.dropdown-trigger.open {
+  border-color: var(--accent);
+}
+.dropdown-caret {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.dropdown-trigger.open .dropdown-caret {
+  transform: rotate(180deg);
+}
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 100%;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+}
+.dropdown-item {
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dropdown-item:hover {
+  background: var(--panel);
+}
+.dropdown-item.selected {
+  color: var(--accent);
+  font-weight: 600;
+}
+/* 상태색 tint 트리거 (상태 변경 드롭다운을 칩처럼) */
+.dropdown-trigger[class*='tone-'] {
+  font-weight: 600;
+}
+.dropdown-trigger[class*='tone-'] .dropdown-caret {
+  color: currentColor;
+}
+.dropdown-trigger.tone-neutral {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+  border-color: color-mix(in srgb, var(--muted) 30%, transparent);
+}
+.dropdown-trigger.tone-blue {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.dropdown-trigger.tone-green {
+  color: var(--prio-low);
+  background: color-mix(in srgb, var(--prio-low) 14%, transparent);
+  border-color: color-mix(in srgb, var(--prio-low) 35%, transparent);
+}
+.dropdown-trigger.tone-amber {
+  color: var(--prio-medium);
+  background: color-mix(in srgb, var(--prio-medium) 14%, transparent);
+  border-color: color-mix(in srgb, var(--prio-medium) 35%, transparent);
+}
+.dropdown-trigger.tone-red {
+  color: var(--prio-high);
+  background: color-mix(in srgb, var(--prio-high) 14%, transparent);
+  border-color: color-mix(in srgb, var(--prio-high) 35%, transparent);
+}
+/* tint 트리거는 hover/open 시에도 상태색 테두리 유지 */
+.dropdown-trigger.tone-neutral:hover,
+.dropdown-trigger.tone-neutral.open {
+  border-color: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+.dropdown-trigger.tone-blue:hover,
+.dropdown-trigger.tone-blue.open {
+  border-color: var(--accent);
+}
+.dropdown-trigger.tone-green:hover,
+.dropdown-trigger.tone-green.open {
+  border-color: var(--prio-low);
+}
+.dropdown-trigger.tone-amber:hover,
+.dropdown-trigger.tone-amber.open {
+  border-color: var(--prio-medium);
+}
+.dropdown-trigger.tone-red:hover,
+.dropdown-trigger.tone-red.open {
+  border-color: var(--prio-high);
 }
 .search-input {
   background: var(--panel-2);
@@ -416,6 +556,25 @@ code {
   font-size: 13px;
   margin: 8px 0 14px;
 }
+.domain-lifecycle {
+  margin-top: 20px;
+}
+.domain-lifecycle-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.lifecycle {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 16px;
+  overflow: auto;
+}
+.lifecycle svg {
+  max-width: 100%;
+  height: auto;
+}
 .table-scroll {
   overflow-x: auto;
   border: 1px solid var(--border);
@@ -592,15 +751,6 @@ code {
   font-size: 13px;
   color: var(--muted);
 }
-.plan-status-ctl select {
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 13px;
-  cursor: pointer;
-}
 .plan-version-row {
   display: flex;
   align-items: center;
@@ -622,6 +772,60 @@ code {
   background: var(--panel-2);
   color: var(--muted);
   vertical-align: middle;
+}
+/* 상태 칩: 상태별 색으로 구분(점 + 틴트 배경 + 테두리) — 목록 가시성 강화 */
+.status-chip,
+.prio-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status-chip::before,
+.prio-chip::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status-chip--draft {
+  color: var(--prio-medium);
+  background: color-mix(in srgb, var(--prio-medium) 14%, transparent);
+  border-color: color-mix(in srgb, var(--prio-medium) 35%, transparent);
+}
+.status-chip--approved {
+  color: var(--prio-low);
+  background: color-mix(in srgb, var(--prio-low) 14%, transparent);
+  border-color: color-mix(in srgb, var(--prio-low) 35%, transparent);
+}
+.status-chip--archived {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+  border-color: color-mix(in srgb, var(--muted) 30%, transparent);
+}
+/* 우선순위 칩 (이슈 테이블) */
+.prio-chip--high {
+  color: var(--prio-high);
+  background: color-mix(in srgb, var(--prio-high) 14%, transparent);
+  border-color: color-mix(in srgb, var(--prio-high) 35%, transparent);
+}
+.prio-chip--medium {
+  color: var(--prio-medium);
+  background: color-mix(in srgb, var(--prio-medium) 14%, transparent);
+  border-color: color-mix(in srgb, var(--prio-medium) 35%, transparent);
+}
+.prio-chip--low {
+  color: var(--prio-low);
+  background: color-mix(in srgb, var(--prio-low) 14%, transparent);
+  border-color: color-mix(in srgb, var(--prio-low) 35%, transparent);
 }
 /* 마크다운 렌더 (기획서 본문) */
 .markdown {
@@ -793,6 +997,15 @@ code {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.wireframe-nav .wf-nav-num {
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.wireframe-nav button.active .wf-nav-num {
+  color: var(--accent);
 }
 .wireframe-nav button:hover {
   border-color: var(--accent);

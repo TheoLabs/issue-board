@@ -87,6 +87,30 @@ export interface DomainColumn {
   description?: string;
 }
 
+/** 생명주기 상태 (엔티티가 가질 수 있는 한 상태) */
+export interface DomainState {
+  /** 상태명 (예: `pending`, `active`, `closed`). 초기/종료는 transitions의 `[*]`로 표기 */
+  name: string;
+  description?: string;
+}
+
+/** 상태 전이 (from → to, 트리거 이벤트 on) */
+export interface DomainTransition {
+  /** 출발 상태명. 초기 상태로부터의 진입은 `[*]` */
+  from: string;
+  /** 도착 상태명. 종료 상태로의 이탈은 `[*]` */
+  to: string;
+  /** 전이를 유발하는 이벤트/액션 라벨 (예: `승인`, `pay()`) */
+  on?: string;
+}
+
+/** 엔티티의 상태 생명주기. 대시보드가 mermaid stateDiagram으로 렌더한다 */
+export interface DomainLifecycle {
+  /** 상태 목록 (설명/순서 보존용, 선택). 생략 시 transitions에서 도출 */
+  states?: DomainState[];
+  transitions: DomainTransition[];
+}
+
 /** 도메인 = 엔티티/테이블 정의. 이름 기준 편집형(upsert). 첫 설계는 draft */
 export interface Domain {
   id: string;
@@ -94,6 +118,8 @@ export interface Domain {
   name: string;
   description: string | null;
   columns: DomainColumn[];
+  /** 상태 흐름(생명주기). 상태를 갖는 엔티티만. 없으면 null */
+  lifecycle: DomainLifecycle | null;
   status: DomainStatus;
   createdAt: string;
   updatedAt: string;
@@ -106,6 +132,8 @@ export interface Wireframe {
   name: string;
   format: WireframeFormat;
   content: string;
+  /** IA(정보구조) 순서. 대시보드 왼쪽 네비가 오름차순 정렬한다. 낮을수록 위 */
+  sequence: number;
   version: number;
   createdAt: string;
 }
@@ -158,6 +186,8 @@ export interface CreateWireframeDto {
   name: string;
   format?: WireframeFormat;
   content: string;
+  /** IA 순서(낮을수록 위). 생략 시 같은 name의 기존 순서를 잇고, 없으면 맨 뒤 */
+  sequence?: number;
 }
 
 /** 도메인 upsert (프로젝트 내 name 기준). 재호출 시 갱신 */
@@ -165,6 +195,8 @@ export interface UpsertDomainDto {
   name: string;
   description?: string;
   columns: DomainColumn[];
+  /** 상태 흐름(생명주기). 상태를 갖는 엔티티만 */
+  lifecycle?: DomainLifecycle | null;
   status?: DomainStatus;
 }
 

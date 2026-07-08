@@ -3,6 +3,7 @@ import type { Plan, PlanVersion, PlanStatus } from '@issue-board/shared';
 import { PLAN_STATUS } from '@issue-board/shared';
 import { api } from '../api/client';
 import { Markdown } from './Markdown';
+import { Select } from './Select';
 
 /** 마크다운에서 h2(## ) 섹션 목차 추출 (Markdown의 sec-N id와 순서 일치) */
 function extractToc(md: string): { id: string; text: string }[] {
@@ -28,6 +29,13 @@ const STATUS_LABEL: Record<PlanStatus, string> = {
   draft: '초안',
   approved: '승인',
   archived: '보관',
+};
+
+/** 기획 상태 → 드롭다운 트리거 색 tone */
+const STATUS_TONE: Record<PlanStatus, string> = {
+  draft: 'tone-amber',
+  approved: 'tone-green',
+  archived: 'tone-neutral',
 };
 
 /** 본문 최상단 H1(제목)은 헤더 제목과 중복되므로 제거 */
@@ -166,31 +174,34 @@ export function PlanPanel({
           <div className="plan-page-controls">
             <div className="plan-status-ctl">
               <label>상태</label>
-              <select
+              <Select
+                ariaLabel="기획 상태 변경"
+                triggerClassName={STATUS_TONE[openPlan.status]}
                 value={openPlan.status}
-                onChange={(e) => changeStatus(e.target.value as PlanStatus)}
-              >
-                {PLAN_STATUS.map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABEL[s]}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => changeStatus(v as PlanStatus)}
+                options={PLAN_STATUS.map((s) => ({
+                  value: s,
+                  label: STATUS_LABEL[s],
+                }))}
+              />
             </div>
             <div className="version-bar">
               <label>버전</label>
-              <select
+              <Select
+                ariaLabel="버전 선택"
+                minWidth={180}
                 value={selected}
-                onChange={(e) => setSelected(e.target.value)}
-              >
-                <option value={CURRENT}>현재 (작업본)</option>
-                {versions.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    v{v.version}
-                    {v.label ? ` · ${v.label}` : ''} · {fmtDate(v.createdAt)}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setSelected(v)}
+                options={[
+                  { value: CURRENT, label: '현재 (작업본)' },
+                  ...versions.map((v) => ({
+                    value: v.id,
+                    label: `v${v.version}${
+                      v.label ? ` · ${v.label}` : ''
+                    } · ${fmtDate(v.createdAt)}`,
+                  })),
+                ]}
+              />
             </div>
             <button className="link-btn snapshot-btn" onClick={saveSnapshot}>
               📌 버전 저장
@@ -258,7 +269,7 @@ export function PlanPanel({
               >
                 <td className="col-name">{p.title}</td>
                 <td>
-                  <span className={`badge status-${p.status}`}>
+                  <span className={`status-chip status-chip--${p.status}`}>
                     {STATUS_LABEL[p.status]}
                   </span>
                 </td>

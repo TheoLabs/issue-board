@@ -1,4 +1,5 @@
 import type { Domain } from '@issue-board/shared';
+import { Lifecycle } from './Lifecycle';
 
 /** 도메인을 표로 렌더 (컬럼명 | 타입 | 제약 | 설명). 초안이면 배지 표시. */
 export function DomainView({
@@ -57,6 +58,13 @@ export function DomainView({
           </tbody>
         </table>
       </div>
+
+      {domain.lifecycle && domain.lifecycle.transitions.length > 0 && (
+        <div className="domain-lifecycle">
+          <h4 className="domain-lifecycle-title">상태 흐름 (생명주기)</h4>
+          <Lifecycle lifecycle={domain.lifecycle} />
+        </div>
+      )}
     </div>
   );
 }

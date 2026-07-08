@@ -6,10 +6,15 @@ import type {
   Wireframe,
   Domain,
   IssueStatus,
+  IssuePriority,
 } from '@issue-board/shared';
+import { ISSUE_STATUS, ISSUE_PRIORITY } from '@issue-board/shared';
 import { api } from './api/client';
 import { useBoardEvents } from './api/useBoardEvents';
 import { IssueBoard } from './components/IssueBoard';
+import { IssueTable } from './components/IssueTable';
+import { Select } from './components/Select';
+import { ISSUE_STATUS_LABEL, ISSUE_PRIORITY_LABEL } from './constants';
 import { IssueDrawer } from './components/IssueDrawer';
 import { WireframeViewer } from './components/WireframeViewer';
 import { DomainView } from './components/DomainView';
@@ -17,6 +22,20 @@ import { Erd } from './components/Erd';
 import { PlanPanel } from './components/PlanPanel';
 
 type Tab = 'plans' | 'issues' | 'wireframes' | 'domains';
+
+const TABS: Tab[] = ['plans', 'issues', 'wireframes', 'domains'];
+const TAB_STORAGE_KEY = 'issue-board:tab';
+
+/** 새로고침해도 탭이 유지되도록 localStorage에서 마지막 탭을 복원한다. */
+function loadInitialTab(): Tab {
+  try {
+    const saved = localStorage.getItem(TAB_STORAGE_KEY);
+    if (saved && (TABS as string[]).includes(saved)) return saved as Tab;
+  } catch {
+    // localStorage 접근 불가(시크릿 모드 등)면 기본값 사용
+  }
+  return 'issues';
+}
 
 /** 마크다운 body에서 index번째 체크리스트 항목의 [ ]↔[x]를 토글한 새 body를 반환 */
 function toggleChecklistLine(body: string, index: number): string {
@@ -44,9 +63,13 @@ export function App() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [activeDomainId, setActiveDomainId] = useState<string | null>(null);
   const [domainView, setDomainView] = useState<'table' | 'erd'>('table');
-  const [tab, setTab] = useState<Tab>('issues');
+  const [issueView, setIssueView] = useState<'kanban' | 'table'>('kanban');
+  const [tab, setTab] = useState<Tab>(loadInitialTab);
   // 이슈 기획 필터: null=전체, '__none__'=기획 없음, 그 외=planId
   const [filterPlanId, setFilterPlanId] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<IssueStatus | ''>('');
+  const [filterPriority, setFilterPriority] = useState<IssuePriority | ''>('');
+  const [issueQuery, setIssueQuery] = useState('');
   // 와이어프레임은 name으로 묶고, 선택된 이름 + 선택된 버전(id)으로 표시한다.
   const [activeName, setActiveName] = useState<string | null>(null);
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
@@ -75,9 +98,10 @@ export function App() {
       setActiveDomainId((prev) =>
         prev && dm.some((d) => d.id === prev) ? prev : (dm[0]?.id ?? null),
       );
-      // 이름 오름차순(01→06, 숫자 자연 정렬), 같은 이름은 버전 내림차순(최신 먼저).
+      // IA sequence 오름차순 → 이름(숫자 자연 정렬) → 같은 이름은 버전 내림차순(최신 먼저).
       const sortedWf = [...wf].sort(
         (a, b) =>
+          a.sequence - b.sequence ||
           a.name.localeCompare(b.name, undefined, { numeric: true }) ||
           b.version - a.version,
       );
@@ -98,6 +122,15 @@ export function App() {
   useEffect(() => {
     if (selectedId) loadProject(selectedId);
   }, [selectedId, loadProject]);
+
+  // 탭 변경 시 localStorage에 저장 → 새로고침 후에도 마지막 탭 유지
+  useEffect(() => {
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, tab);
+    } catch {
+      // 저장 실패는 무시(기능에 영향 없음)
+    }
+  }, [tab]);
 
   // 외부 Claude 세션(MCP) 변경을 실시간 반영
   useBoardEvents(
@@ -206,11 +239,19 @@ export function App() {
   const linkedDomain = selectedIssue?.domainId
     ? (domains.find((d) => d.id === selectedIssue.domainId) ?? null)
     : null;
-  const filteredIssues = !filterPlanId
-    ? issues
-    : filterPlanId === '__none__'
-      ? issues.filter((i) => !i.planId)
-      : issues.filter((i) => i.planId === filterPlanId);
+  const issueQ = issueQuery.trim().toLowerCase();
+  const filteredIssues = issues.filter((i) => {
+    if (filterPlanId === '__none__') {
+      if (i.planId) return false;
+    } else if (filterPlanId && i.planId !== filterPlanId) {
+      return false;
+    }
+    if (filterStatus && i.status !== filterStatus) return false;
+    if (filterPriority && i.priority !== filterPriority) return false;
+    if (issueQ && !`${i.title} ${i.body}`.toLowerCase().includes(issueQ))
+      return false;
+    return true;
+  });
   // viewScreen과 동일하게 "이름별 최신 버전" 중에서만 화면 존재 여부를 판단
   const screenAvailable =
     !!selectedIssue?.screenId &&
@@ -280,34 +321,123 @@ export function App() {
             <section className="panel">
               {tab === 'issues' && (
                 <>
-                  <div className="filter-bar">
-                    <label>기획</label>
-                    <select
-                      value={filterPlanId ?? ''}
-                      onChange={(e) =>
-                        setFilterPlanId(e.target.value || null)
-                      }
-                    >
-                      <option value="">전체 ({issues.length})</option>
-                      {plans.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.title} (
-                          {issues.filter((i) => i.planId === p.id).length})
-                        </option>
-                      ))}
-                      {issues.some((i) => !i.planId) && (
-                        <option value="__none__">
-                          기획 없음 ({issues.filter((i) => !i.planId).length})
-                        </option>
-                      )}
-                    </select>
+                  <div className="issue-controls">
+                    <div className="filter-bar">
+                      <div className="filter-row">
+                        <div className="filter-field">
+                          <label>기획</label>
+                          <Select
+                            ariaLabel="기획 필터"
+                            minWidth={160}
+                            value={filterPlanId ?? ''}
+                            onChange={(v) => setFilterPlanId(v || null)}
+                            options={[
+                              {
+                                value: '',
+                                label: `전체 (${issues.length})`,
+                              },
+                              ...plans.map((p) => ({
+                                value: p.id,
+                                label: `${p.title} (${
+                                  issues.filter((i) => i.planId === p.id).length
+                                })`,
+                              })),
+                              ...(issues.some((i) => !i.planId)
+                                ? [
+                                    {
+                                      value: '__none__',
+                                      label: `기획 없음 (${
+                                        issues.filter((i) => !i.planId).length
+                                      })`,
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                          />
+                        </div>
+                      </div>
+                      <div className="filter-row">
+                        <input
+                          className="search-input"
+                          type="search"
+                          placeholder="제목·본문 검색"
+                          value={issueQuery}
+                          onChange={(e) => setIssueQuery(e.target.value)}
+                        />
+                        <div className="filter-field">
+                          <label>상태</label>
+                          <Select
+                            ariaLabel="상태 필터"
+                            value={filterStatus}
+                            onChange={(v) =>
+                              setFilterStatus(v as IssueStatus | '')
+                            }
+                            options={[
+                              { value: '', label: '전체' },
+                              ...ISSUE_STATUS.map((s) => ({
+                                value: s,
+                                label: ISSUE_STATUS_LABEL[s],
+                              })),
+                            ]}
+                          />
+                        </div>
+                        <div className="filter-field">
+                          <label>우선순위</label>
+                          <Select
+                            ariaLabel="우선순위 필터"
+                            value={filterPriority}
+                            onChange={(v) =>
+                              setFilterPriority(v as IssuePriority | '')
+                            }
+                            options={[
+                              { value: '', label: '전체' },
+                              ...ISSUE_PRIORITY.map((p) => ({
+                                value: p,
+                                label: ISSUE_PRIORITY_LABEL[p],
+                              })),
+                            ]}
+                          />
+                        </div>
+                        {(filterStatus ||
+                          filterPriority ||
+                          issueQ ||
+                          filterPlanId) && (
+                          <span className="muted-hint">
+                            {filteredIssues.length} / {issues.length}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="view-toggle">
+                      <button
+                        className={issueView === 'kanban' ? 'active' : ''}
+                        onClick={() => setIssueView('kanban')}
+                      >
+                        칸반
+                      </button>
+                      <button
+                        className={issueView === 'table' ? 'active' : ''}
+                        onClick={() => setIssueView('table')}
+                      >
+                        테이블
+                      </button>
+                    </div>
                   </div>
-                  <IssueBoard
-                    issues={filteredIssues}
-                    onSelect={setSelectedIssue}
-                    onMove={changeStatus}
-                    selectedId={selectedIssue?.id ?? null}
-                  />
+                  {issueView === 'kanban' ? (
+                    <IssueBoard
+                      issues={filteredIssues}
+                      onSelect={setSelectedIssue}
+                      onMove={changeStatus}
+                      selectedId={selectedIssue?.id ?? null}
+                    />
+                  ) : (
+                    <IssueTable
+                      issues={filteredIssues}
+                      onSelect={setSelectedIssue}
+                      onMove={changeStatus}
+                      selectedId={selectedIssue?.id ?? null}
+                    />
+                  )}
                 </>
               )}
 
@@ -341,7 +471,7 @@ export function App() {
                     return (
                       <div className="wireframe-layout">
                         <nav className="wireframe-nav">
-                          {names.map((name) => {
+                          {names.map((name, i) => {
                             const latest = wireframes.find(
                               (w) => w.name === name,
                             )!;
@@ -354,6 +484,7 @@ export function App() {
                                   setActiveVersionId(latest.id);
                                 }}
                               >
+                                <span className="wf-nav-num">{i + 1}.</span>
                                 {name}
                               </button>
                             );
@@ -365,19 +496,17 @@ export function App() {
                               {versions.length > 1 && (
                                 <div className="version-bar">
                                   <label>버전</label>
-                                  <select
+                                  <Select
+                                    ariaLabel="버전 선택"
                                     value={activeWf.id}
-                                    onChange={(e) =>
-                                      setActiveVersionId(e.target.value)
-                                    }
-                                  >
-                                    {versions.map((v, i) => (
-                                      <option key={v.id} value={v.id}>
-                                        v{v.version}
-                                        {i === 0 ? ' (최신)' : ''}
-                                      </option>
-                                    ))}
-                                  </select>
+                                    onChange={(v) => setActiveVersionId(v)}
+                                    options={versions.map((v, i) => ({
+                                      value: v.id,
+                                      label: `v${v.version}${
+                                        i === 0 ? ' (최신)' : ''
+                                      }`,
+                                    }))}
+                                  />
                                 </div>
                               )}
                               <button

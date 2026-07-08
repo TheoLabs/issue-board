@@ -38,18 +38,44 @@ $ARGUMENTS
   다이어그램을 만들 필요 없다. 표기가 어긋나면 ERD 관계선이 안 그려진다.
   - 예: `Room` 도메인의 `ownerId` 컬럼 constraints = `FK→User` → ERD에 Room→User 연결선.
 
+### 2-1) 생명주기(상태 흐름) 정의 — 상태를 갖는 엔티티만
+
+엔티티에 **상태 컬럼**(예: `status`, `state`가 `enum(...)`)이 있으면, 그 상태들이 어떤
+순서로/무슨 이벤트로 전이되는지 **생명주기(lifecycle)**를 함께 정의하라. 대시보드가 이걸
+**mermaid 상태 흐름도(stateDiagram)**로 자동 렌더한다 — mermaid 문법을 직접 쓰지 말고
+아래 구조만 채우면 된다.
+
+- **states**(선택): `[{ name, description? }]` — 상태 목록. 설명이나 순서를 남기고 싶을 때.
+- **transitions**(필수): `[{ from, to, on? }]`
+  - `from`/`to`: 상태명. `enum(...)`의 값과 정확히 일치시켜라.
+  - **초기 진입**은 `from: "[*]"`, **종료**는 `to: "[*]"`로 표기한다.
+  - `on`: 전이를 유발하는 이벤트/액션 라벨 (예: `승인`, `결제`, `취소`).
+- 예: `Order` 엔티티 `status enum(pending,paid,shipped,cancelled)` →
+  ```
+  transitions: [
+    { from: "[*]",     to: "pending"   },
+    { from: "pending", to: "paid",      on: "결제" },
+    { from: "pending", to: "cancelled", on: "취소" },
+    { from: "paid",    to: "shipped",   on: "배송" },
+    { from: "shipped", to: "[*]" },
+  ]
+  ```
+- 상태가 없는 순수 참조/조인 엔티티는 lifecycle을 **생략**하라 (억지로 만들지 마라).
+
 ### 3) 적재 (upsert)
 
-도메인마다 `create_domain(projectId, name, description, columns)`.
+도메인마다 `create_domain(projectId, name, description, columns, lifecycle?)`.
 - **status는 생략**한다 → 첫 설계는 자동으로 **`draft`(초안)**으로 저장되고 대시보드에
   "초안" 배지가 붙는다. (확정 요청을 받았을 때만 status="approved".)
+- **lifecycle**은 상태를 갖는 엔티티에만 넣는다. 재호출 시 **생략하면 기존 생명주기가
+  유지**되고, 명시적으로 `null`을 주면 제거된다.
 - 이름 기준 **upsert**라 같은 이름으로 다시 호출하면 갱신된다 (중복 생성 아님).
 
 ### 4) 보고
 
-정리한 도메인과 컬럼 수를 **표 형태로** 요약하고 안내한다:
-"대시보드 도메인 탭에서 확인하세요 (초안). 이슈와 연동하려면 `/ib-issues`를 실행하면
-관련 이슈에 도메인이 연결됩니다."
+정리한 도메인과 컬럼 수를 **표 형태로** 요약하고(생명주기를 넣은 엔티티는 표시), 안내한다:
+"대시보드 도메인 탭에서 확인하세요 (초안). ERD와 상태 흐름도가 자동으로 그려집니다.
+이슈와 연동하려면 `/ib-issues`를 실행하면 관련 이슈에 도메인이 연결됩니다."
 
 ## 주의
 

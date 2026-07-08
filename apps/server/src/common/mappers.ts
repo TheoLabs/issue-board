@@ -14,6 +14,7 @@ import type {
   Wireframe,
   Domain,
   DomainColumn,
+  DomainLifecycle,
   IssueStatus,
   IssuePriority,
   PlanStatus,
@@ -86,6 +87,7 @@ export function toDomain(row: PrismaDomain): Domain {
     name: row.name,
     description: row.description,
     columns: parseColumns(row.columns),
+    lifecycle: parseLifecycle(row.lifecycle),
     status: row.status as DomainStatus,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
@@ -99,6 +101,7 @@ export function toWireframe(row: PrismaWireframe): Wireframe {
     name: row.name,
     format: row.format as WireframeFormat,
     content: row.content,
+    sequence: row.sequence,
     version: row.version,
     createdAt: iso(row.createdAt),
   };
@@ -125,5 +128,39 @@ function parseColumns(raw: string): DomainColumn[] {
     }));
   } catch {
     return [];
+  }
+}
+
+function parseLifecycle(raw: string | null): DomainLifecycle | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    const transitions = Array.isArray(parsed?.transitions)
+      ? parsed.transitions
+          .map((t: unknown) => {
+            const o = t as Record<string, unknown>;
+            return {
+              from: String(o?.from ?? ''),
+              to: String(o?.to ?? ''),
+              on: o?.on ? String(o.on) : undefined,
+            };
+          })
+          .filter((t: { from: string; to: string }) => t.from && t.to)
+      : [];
+    if (transitions.length === 0 && !Array.isArray(parsed?.states)) return null;
+    const states = Array.isArray(parsed?.states)
+      ? parsed.states
+          .map((s: unknown) => {
+            const o = s as Record<string, unknown>;
+            return {
+              name: String(o?.name ?? ''),
+              description: o?.description ? String(o.description) : undefined,
+            };
+          })
+          .filter((s: { name: string }) => s.name)
+      : undefined;
+    return { states, transitions };
+  } catch {
+    return null;
   }
 }

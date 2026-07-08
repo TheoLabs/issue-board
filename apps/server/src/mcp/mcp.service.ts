@@ -12,6 +12,7 @@ import {
   type WireframeFormat,
   type DomainStatus,
   type DomainColumn,
+  type DomainLifecycle,
   type PlanStatus,
 } from '@issue-board/shared';
 import { ProjectsService } from '../projects/projects.service';
@@ -189,12 +190,19 @@ export class McpService {
     this.tool(
       server,
       'create_wireframe',
-      'HTML 와이어프레임을 적재한다 (조회 전용 아티팩트).',
+      'HTML 와이어프레임을 적재한다 (조회 전용 아티팩트). sequence로 IA(정보구조) 순서를 지정하면 대시보드 왼쪽 네비가 그 순서로 정렬한다.',
       {
         projectId: z.string(),
         name: z.string(),
         content: z.string().describe('와이어프레임 원본 (기본 HTML)'),
         format: z.enum(WIREFRAME_FORMAT).optional(),
+        sequence: z
+          .number()
+          .int()
+          .optional()
+          .describe(
+            'IA 순서(낮을수록 위, 0부터). 생략 시 같은 name의 기존 순서를 잇고, 신규면 맨 뒤.',
+          ),
       },
       async (args) =>
         json(
@@ -202,6 +210,7 @@ export class McpService {
             name: args.name as string,
             content: args.content as string,
             format: args.format as WireframeFormat | undefined,
+            sequence: args.sequence as number | undefined,
           }),
         ),
     );
@@ -209,7 +218,7 @@ export class McpService {
     this.tool(
       server,
       'create_domain',
-      '도메인(엔티티/테이블) 정의를 적재한다. 이름 기준 upsert — 같은 이름으로 다시 호출하면 갱신된다. 첫 설계는 status를 생략해 draft(초안)로 둔다. columns는 {name,type,constraints?,description?} 배열.',
+      '도메인(엔티티/테이블) 정의를 적재한다. 이름 기준 upsert — 같은 이름으로 다시 호출하면 갱신된다. 첫 설계는 status를 생략해 draft(초안)로 둔다. columns는 {name,type,constraints?,description?} 배열. status(state) 컬럼이 있는 엔티티는 lifecycle에 상태 전이(from→to, on=이벤트)를 넣으면 대시보드가 상태 흐름도(mermaid)를 그린다.',
       {
         projectId: z.string(),
         name: z.string(),
@@ -227,6 +236,36 @@ export class McpService {
             }),
           )
           .describe('컬럼 정의 배열'),
+        lifecycle: z
+          .object({
+            states: z
+              .array(
+                z.object({
+                  name: z.string(),
+                  description: z.string().optional(),
+                }),
+              )
+              .optional()
+              .describe('상태 목록(설명/순서 보존용, 선택)'),
+            transitions: z
+              .array(
+                z.object({
+                  from: z
+                    .string()
+                    .describe('출발 상태명. 초기 진입은 "[*]"'),
+                  to: z.string().describe('도착 상태명. 종료는 "[*]"'),
+                  on: z
+                    .string()
+                    .optional()
+                    .describe('전이를 유발하는 이벤트/액션 라벨'),
+                }),
+              )
+              .describe('상태 전이 목록'),
+          })
+          .nullish()
+          .describe(
+            '상태 생명주기. 상태(status/state)를 갖는 엔티티만. 대시보드가 mermaid stateDiagram으로 렌더한다. 재호출 시 미지정이면 기존 유지, null이면 제거.',
+          ),
         status: z.enum(DOMAIN_STATUS).optional().describe('생략 시 draft(초안)'),
       },
       async (args) =>
@@ -235,6 +274,7 @@ export class McpService {
             name: args.name as string,
             description: args.description as string | undefined,
             columns: args.columns as DomainColumn[],
+            lifecycle: args.lifecycle as DomainLifecycle | null | undefined,
             status: args.status as DomainStatus | undefined,
           }),
         ),

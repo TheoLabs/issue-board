@@ -15,12 +15,12 @@ export class WireframesService {
     private readonly events: EventsService,
   ) {}
 
-  /** 모든 버전을 반환한다 (name 오름차순, 같은 name 내 version 내림차순).
+  /** 모든 버전을 반환한다 (IA sequence 오름차순 → name → 같은 name 내 version 내림차순).
    *  클라이언트가 name으로 묶어 최신을 기본 표시하고 이력을 선택한다. */
   async listByProject(projectId: string): Promise<Wireframe[]> {
     const rows = await this.prisma.wireframe.findMany({
       where: { projectId },
-      orderBy: [{ name: 'asc' }, { version: 'desc' }],
+      orderBy: [{ sequence: 'asc' }, { name: 'asc' }, { version: 'desc' }],
     });
     return rows.map(toWireframe);
   }
@@ -36,9 +36,23 @@ export class WireframesService {
     const latest = await this.prisma.wireframe.findFirst({
       where: { projectId, name: dto.name },
       orderBy: { version: 'desc' },
-      select: { version: true },
+      select: { version: true, sequence: true },
     });
     const version = latest ? latest.version + 1 : 1;
+
+    // IA 순서: 명시값 우선 → 같은 name의 기존 순서 상속 → 프로젝트 맨 뒤(max+1)
+    let sequence: number;
+    if (dto.sequence != null) {
+      sequence = dto.sequence;
+    } else if (latest) {
+      sequence = latest.sequence;
+    } else {
+      const last = await this.prisma.wireframe.aggregate({
+        where: { projectId },
+        _max: { sequence: true },
+      });
+      sequence = (last._max.sequence ?? -1) + 1;
+    }
 
     const row = await this.prisma.wireframe.create({
       data: {
@@ -46,6 +60,7 @@ export class WireframesService {
         name: dto.name,
         format: dto.format ?? 'html',
         content: dto.content,
+        sequence,
         version,
       },
     });

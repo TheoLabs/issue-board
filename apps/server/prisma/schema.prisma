@@ -97,6 +97,8 @@ model Domain {
   description String?
   // 컬럼 정의 배열 JSON: [{ name, type, constraints?, description? }]
   columns     String   @default("[]")
+  // 상태 생명주기 JSON: { states?: [{name,description?}], transitions: [{from,to,on?}] }. 없으면 null
+  lifecycle   String?
   // 첫 설계는 초안. draft | approved | archived
   status      String   @default("draft")
   createdAt   DateTime @default(now())
@@ -117,6 +119,8 @@ model Wireframe {
   // 조회 전용 (편집 대상 아님) — html | excalidraw | mermaid | svg
   format    String   @default("html")
   content   String
+  // IA(정보구조) 순서. 왼쪽 네비가 오름차순 정렬. 낮을수록 위.
+  sequence  Int      @default(0)
   // 같은 name의 재생성마다 증가. 삭제 대신 이력으로 보존한다.
   version   Int      @default(1)
   createdAt DateTime @default(now())

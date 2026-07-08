@@ -32,6 +32,13 @@ export class DomainsService {
   /** name 기준 upsert. 기존 있으면 갱신(status는 명시된 경우만 변경). */
   async upsert(projectId: string, dto: UpsertDomainDto): Promise<Domain> {
     const columns = JSON.stringify(dto.columns ?? []);
+    // lifecycle: 미지정(undefined)이면 갱신 시 기존값 유지, 명시적 null이면 제거.
+    const lifecycle =
+      dto.lifecycle === undefined
+        ? undefined
+        : dto.lifecycle === null
+          ? null
+          : JSON.stringify(dto.lifecycle);
     const row = await this.prisma.domain.upsert({
       where: { projectId_name: { projectId, name: dto.name } },
       create: {
@@ -39,11 +46,13 @@ export class DomainsService {
         name: dto.name,
         description: dto.description ?? null,
         columns,
+        lifecycle: lifecycle ?? null,
         status: dto.status ?? 'draft',
       },
       update: {
         description: dto.description ?? null,
         columns,
+        ...(lifecycle !== undefined ? { lifecycle } : {}),
         ...(dto.status ? { status: dto.status } : {}),
       },
     });

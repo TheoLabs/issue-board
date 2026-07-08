@@ -1,13 +1,7 @@
 import { useRef, useState } from 'react';
 import type { Issue, IssueStatus } from '@issue-board/shared';
 import { ISSUE_STATUS } from '@issue-board/shared';
-
-const STATUS_LABEL: Record<IssueStatus, string> = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  done: 'Done',
-  blocked: 'Blocked',
-};
+import { ISSUE_STATUS_LABEL as STATUS_LABEL } from '../constants';
 
 /**
  * 상태별 칸반 컬럼.

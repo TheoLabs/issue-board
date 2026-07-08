@@ -1,12 +1,15 @@
 import type { Issue, IssueStatus, Plan, Domain } from '@issue-board/shared';
 import { ISSUE_STATUS } from '@issue-board/shared';
 import { Markdown } from './Markdown';
+import { Select } from './Select';
+import { ISSUE_STATUS_LABEL as STATUS_LABEL } from '../constants';
 
-const STATUS_LABEL: Record<IssueStatus, string> = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  done: 'Done',
-  blocked: 'Blocked',
+/** 이슈 상태 → 드롭다운 트리거 색 tone */
+const STATUS_TONE: Record<IssueStatus, string> = {
+  todo: 'tone-neutral',
+  in_progress: 'tone-blue',
+  done: 'tone-green',
+  blocked: 'tone-red',
 };
 
 /**
@@ -52,16 +55,16 @@ export function IssueDrawer({
 
         <div className="drawer-row">
           <label>상태</label>
-          <select
+          <Select
+            ariaLabel="상태 변경"
+            triggerClassName={STATUS_TONE[issue.status]}
             value={issue.status}
-            onChange={(e) => onStatusChange(e.target.value as IssueStatus)}
-          >
-            {ISSUE_STATUS.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => onStatusChange(v as IssueStatus)}
+            options={ISSUE_STATUS.map((s) => ({
+              value: s,
+              label: STATUS_LABEL[s],
+            }))}
+          />
         </div>
 
         {issue.labels.length > 0 && (
