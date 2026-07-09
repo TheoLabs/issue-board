@@ -130,11 +130,45 @@ export class McpService {
 
     this.tool(
       server,
+      'get_issue',
+      '특정 이슈 하나를 반환한다 (본문·상태·연동 정보 포함).',
+      { issueId: z.string() },
+      async (args) => json(await this.issues.get(args.issueId as string)),
+    );
+
+    this.tool(
+      server,
+      'list_wireframes',
+      '프로젝트의 와이어프레임 목록을 반환한다 (IA 순서/버전 포함, 조회 전용).',
+      { projectId: z.string() },
+      async (args) =>
+        json(await this.wireframes.listByProject(args.projectId as string)),
+    );
+
+    this.tool(
+      server,
       'get_wireframe',
       '특정 와이어프레임을 반환한다 (조회 전용).',
       { wireframeId: z.string() },
       async (args) =>
         json(await this.wireframes.get(args.wireframeId as string)),
+    );
+
+    this.tool(
+      server,
+      'list_domains',
+      '프로젝트의 도메인(엔티티) 목록을 반환한다 (컬럼·생명주기 포함).',
+      { projectId: z.string() },
+      async (args) =>
+        json(await this.domains.listByProject(args.projectId as string)),
+    );
+
+    this.tool(
+      server,
+      'get_domain',
+      '특정 도메인 하나를 반환한다 (컬럼·제약·상태 흐름 포함).',
+      { domainId: z.string() },
+      async (args) => json(await this.domains.get(args.domainId as string)),
     );
 
     this.tool(
@@ -358,6 +392,41 @@ export class McpService {
             domainId: args.domainId as string | undefined,
           }),
         ),
+    );
+
+    this.tool(
+      server,
+      'update_issue',
+      '이슈의 제목·본문·우선순위·라벨·부모를 수정한다. (상태 변경은 update_issue_status, 연동은 link_issue를 쓴다.) 주지 않은 필드는 그대로 유지된다.',
+      {
+        issueId: z.string(),
+        title: z.string().optional(),
+        body: z.string().optional(),
+        priority: z.enum(ISSUE_PRIORITY).optional(),
+        labels: z.array(z.string()).optional(),
+        parentId: z.string().optional(),
+      },
+      async (args) =>
+        json(
+          await this.issues.update(args.issueId as string, {
+            title: args.title as string | undefined,
+            body: args.body as string | undefined,
+            priority: args.priority as IssuePriority | undefined,
+            labels: args.labels as string[] | undefined,
+            parentId: args.parentId as string | undefined,
+          }),
+        ),
+    );
+
+    this.tool(
+      server,
+      'delete_issue',
+      '이슈를 삭제한다. 되돌릴 수 없으므로 사용자가 명시적으로 요청할 때만 사용하라. 생성/진행 과정에서 자동으로 호출하지 마라.',
+      { issueId: z.string() },
+      async (args) => {
+        await this.issues.remove(args.issueId as string);
+        return json({ deleted: args.issueId as string });
+      },
     );
 
     this.tool(
