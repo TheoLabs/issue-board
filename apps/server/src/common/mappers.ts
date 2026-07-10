@@ -5,6 +5,7 @@ import type {
   Issue as PrismaIssue,
   Wireframe as PrismaWireframe,
   Domain as PrismaDomain,
+  Design as PrismaDesign,
 } from '@prisma/client';
 import type {
   Project,
@@ -15,6 +16,8 @@ import type {
   Domain,
   DomainColumn,
   DomainLifecycle,
+  Design,
+  DesignTokens,
   IssueStatus,
   IssuePriority,
   PlanStatus,
@@ -23,6 +26,23 @@ import type {
 } from '@issue-board/shared';
 
 const iso = (d: Date): string => d.toISOString();
+
+export function toDesign(row: PrismaDesign): Design {
+  let tokens: DesignTokens;
+  try {
+    tokens = JSON.parse(row.tokens) as DesignTokens;
+  } catch {
+    tokens = {} as DesignTokens;
+  }
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    tokens,
+    status: row.status as DomainStatus,
+    createdAt: iso(row.createdAt),
+    updatedAt: iso(row.updatedAt),
+  };
+}
 
 export function toProject(row: PrismaProject): Project {
   return {

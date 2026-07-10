@@ -20,6 +20,8 @@ import { PlansService } from '../plans/plans.service';
 import { IssuesService } from '../issues/issues.service';
 import { WireframesService } from '../wireframes/wireframes.service';
 import { DomainsService } from '../domains/domains.service';
+import { DesignsService } from '../designs/designs.service';
+import type { DesignTokens } from '@issue-board/shared';
 
 interface ToolResult {
   content: Array<{ type: 'text'; text: string }>;
@@ -49,6 +51,7 @@ export class McpService {
     private readonly issues: IssuesService,
     private readonly wireframes: WireframesService,
     private readonly domains: DomainsService,
+    private readonly designs: DesignsService,
   ) {}
 
   /** 요청마다 새 McpServer 인스턴스 생성 (stateless HTTP 트랜스포트) */
@@ -94,11 +97,12 @@ export class McpService {
             message: `repoPath=${repoPath} 로 등록된 프로젝트가 없습니다. create_project로 먼저 등록하세요.`,
           });
         }
-        const [plans, issues, wireframes, domains] = await Promise.all([
+        const [plans, issues, wireframes, domains, design] = await Promise.all([
           this.plans.listByProject(project.id),
           this.issues.listByProject(project.id),
           this.wireframes.listByProject(project.id),
           this.domains.listByProject(project.id),
+          this.designs.getByProject(project.id),
         ]);
         return json({
           matched: true,
@@ -107,6 +111,7 @@ export class McpService {
           issues,
           wireframes,
           domains,
+          design,
         });
       },
     );
@@ -323,6 +328,73 @@ export class McpService {
         await this.domains.remove(args.domainId as string);
         return json({ deleted: args.domainId as string });
       },
+    );
+
+    this.tool(
+      server,
+      'create_design',
+      '프로젝트의 디자인 시스템을 적재한다(프로젝트당 하나, upsert). 메인 컬러에서 도출한 전체 토큰(brand/neutral/semantic/타이포/간격/라운드)을 넣는다. 색은 hex(#RRGGBB). 첫 설계는 status 생략해 draft.',
+      {
+        projectId: z.string(),
+        tokens: z.object({
+          brand: z.object({
+            main: z.string(),
+            mainHover: z.string(),
+            mainSoft: z.string(),
+            sub: z.string(),
+            subSoft: z.string(),
+          }),
+          neutral: z.object({
+            bg: z.string(),
+            surface: z.string(),
+            surface2: z.string(),
+            border: z.string(),
+            text: z.string(),
+            muted: z.string(),
+          }),
+          semantic: z.object({
+            success: z.string(),
+            warning: z.string(),
+            danger: z.string(),
+            info: z.string(),
+          }),
+          fontHeading: z.string(),
+          fontBody: z.string(),
+          typeScale: z.array(
+            z.object({
+              name: z.string(),
+              size: z.number(),
+              weight: z.number(),
+              lineHeight: z.number(),
+            }),
+          ),
+          spacing: z.array(z.number()),
+          radius: z.object({
+            sm: z.number(),
+            md: z.number(),
+            lg: z.number(),
+            full: z.number(),
+          }),
+          mood: z.string().optional(),
+        }),
+        status: z.enum(DOMAIN_STATUS).optional(),
+      },
+      async (args) =>
+        json(
+          await this.designs.upsert(args.projectId as string, {
+            tokens: args.tokens as DesignTokens,
+            status: args.status as DomainStatus | undefined,
+          }),
+        ),
+    );
+
+    this.tool(
+      server,
+      'get_design',
+      '프로젝트의 디자인 시스템(토큰)을 반환한다. 없으면 null.',
+      { projectId: z.string() },
+      async (args) =>
+        json(await this.designs.getByProject(args.projectId as string)),
     );
 
     this.tool(

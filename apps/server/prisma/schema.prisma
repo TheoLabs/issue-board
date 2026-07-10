@@ -23,6 +23,19 @@ model Project {
   issues     Issue[]
   wireframes Wireframe[]
   domains    Domain[]
+  design     Design?
+}
+
+// 프로젝트당 하나의 디자인 시스템 (색·타이포·간격 등 토큰). 이름 대신 프로젝트로 upsert.
+model Design {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // 디자인 토큰 JSON (DesignTokens)
+  tokens    String   @default("{}")
+  status    String   @default("draft") // draft | approved | archived
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Plan {

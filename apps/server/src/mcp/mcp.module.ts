@@ -6,6 +6,7 @@ import { PlansModule } from '../plans/plans.module';
 import { IssuesModule } from '../issues/issues.module';
 import { WireframesModule } from '../wireframes/wireframes.module';
 import { DomainsModule } from '../domains/domains.module';
+import { DesignsModule } from '../designs/designs.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { DomainsModule } from '../domains/domains.module';
     IssuesModule,
     WireframesModule,
     DomainsModule,
+    DesignsModule,
   ],
   controllers: [McpController],
   providers: [McpService],

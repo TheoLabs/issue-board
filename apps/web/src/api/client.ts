@@ -5,6 +5,7 @@ import type {
   Issue,
   Wireframe,
   Domain,
+  Design,
   UpdateIssueDto,
   UpdatePlanDto,
 } from '@issue-board/shared';
@@ -52,6 +53,12 @@ export const api = {
     req<void>(`/wireframes/${id}`, { method: 'DELETE' }),
   listDomains: (projectId: string) =>
     req<Domain[]>(`/projects/${projectId}/domains`),
+  getDesign: async (projectId: string): Promise<Design | null> => {
+    const res = await fetch(`${BASE}/projects/${projectId}/design`);
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text ? (JSON.parse(text) as Design) : null;
+  },
   deleteDomain: (id: string) => req<void>(`/domains/${id}`, { method: 'DELETE' }),
 
   updateIssue: (id: string, dto: UpdateIssueDto, version: number) =>

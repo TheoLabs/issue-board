@@ -6,6 +6,7 @@ import { PlansModule } from './plans/plans.module';
 import { IssuesModule } from './issues/issues.module';
 import { WireframesModule } from './wireframes/wireframes.module';
 import { DomainsModule } from './domains/domains.module';
+import { DesignsModule } from './designs/designs.module';
 import { McpModule } from './mcp/mcp.module';
 
 @Module({
@@ -17,6 +18,7 @@ import { McpModule } from './mcp/mcp.module';
     IssuesModule,
     WireframesModule,
     DomainsModule,
+    DesignsModule,
     McpModule,
   ],
 })

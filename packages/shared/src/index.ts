@@ -125,6 +125,72 @@ export interface Domain {
   updatedAt: string;
 }
 
+// ─── 디자인 시스템 ───
+
+/** 브랜드 색 (메인/서브 + 변형) */
+export interface DesignBrand {
+  main: string;
+  mainHover: string;
+  mainSoft: string;
+  sub: string;
+  subSoft: string;
+}
+
+/** 뉴트럴(그레이) 스케일 */
+export interface DesignNeutral {
+  bg: string;
+  surface: string;
+  surface2: string;
+  border: string;
+  text: string;
+  muted: string;
+}
+
+/** 시맨틱 색 */
+export interface DesignSemantic {
+  success: string;
+  warning: string;
+  danger: string;
+  info: string;
+}
+
+/** 타입 스케일 한 단계 */
+export interface DesignTypeStep {
+  name: string;
+  size: number;
+  weight: number;
+  lineHeight: number;
+}
+
+/** 디자인 토큰 전체 */
+export interface DesignTokens {
+  brand: DesignBrand;
+  neutral: DesignNeutral;
+  semantic: DesignSemantic;
+  fontHeading: string;
+  fontBody: string;
+  typeScale: DesignTypeStep[];
+  spacing: number[];
+  radius: { sm: number; md: number; lg: number; full: number };
+  /** 무드/톤 가이드 (예: "미니멀·모던") */
+  mood?: string;
+}
+
+/** 프로젝트당 하나의 디자인 시스템 (upsert) */
+export interface Design {
+  id: string;
+  projectId: string;
+  tokens: DesignTokens;
+  status: DomainStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertDesignDto {
+  tokens: DesignTokens;
+  status?: DomainStatus;
+}
+
 /** 조회 전용 아티팩트 (편집·상호작용 제외). 같은 name의 재생성은 version으로 이력 보존 */
 export interface Wireframe {
   id: string;
@@ -207,7 +273,8 @@ export type BoardEventType =
   | 'plan:changed'
   | 'issue:changed'
   | 'wireframe:changed'
-  | 'domain:changed';
+  | 'domain:changed'
+  | 'design:changed';
 
 export interface BoardEvent {
   type: BoardEventType;

@@ -5,6 +5,7 @@ import type {
   Issue,
   Wireframe,
   Domain,
+  Design,
   IssueStatus,
   IssuePriority,
 } from '@issue-board/shared';
@@ -18,10 +19,11 @@ import { ISSUE_STATUS_LABEL, ISSUE_PRIORITY_LABEL } from './constants';
 import { IssueDrawer } from './components/IssueDrawer';
 import { WireframeViewer } from './components/WireframeViewer';
 import { DomainView } from './components/DomainView';
+import { DesignSystem } from './components/DesignSystem';
 import { Erd } from './components/Erd';
 import { PlanPanel } from './components/PlanPanel';
 
-type Tab = 'plans' | 'issues' | 'wireframes' | 'domains';
+type Tab = 'plans' | 'issues' | 'wireframes' | 'domains' | 'design';
 
 const TABS: Tab[] = ['plans', 'issues', 'wireframes', 'domains'];
 const TAB_STORAGE_KEY = 'issue-board:tab';
@@ -61,6 +63,7 @@ export function App() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [wireframes, setWireframes] = useState<Wireframe[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
+  const [design, setDesign] = useState<Design | null>(null);
   const [activeDomainId, setActiveDomainId] = useState<string | null>(null);
   const [domainView, setDomainView] = useState<'table' | 'erd'>('table');
   const [issueView, setIssueView] = useState<'kanban' | 'table'>('kanban');
@@ -91,10 +94,12 @@ export function App() {
       api.listIssues(projectId),
       api.listWireframes(projectId),
       api.listDomains(projectId),
-    ]).then(([pl, is, wf, dm]) => {
+      api.getDesign(projectId),
+    ]).then(([pl, is, wf, dm, ds]) => {
       setPlans(pl);
       setIssues(is);
       setDomains(dm);
+      setDesign(ds);
       setActiveDomainId((prev) =>
         prev && dm.some((d) => d.id === prev) ? prev : (dm[0]?.id ?? null),
       );
@@ -298,23 +303,31 @@ export function App() {
               <h2>{selected.name}</h2>
               {selected.description && <p>{selected.description}</p>}
               <div className="tabs">
-                {(['issues', 'plans', 'domains', 'wireframes'] as Tab[]).map(
-                  (t) => (
-                    <button
-                      key={t}
-                      className={tab === t ? 'active' : ''}
-                      onClick={() => setTab(t)}
-                    >
-                      {t === 'issues'
-                        ? `이슈 (${issues.length})`
-                        : t === 'plans'
-                          ? `기획 (${plans.length})`
-                          : t === 'domains'
-                            ? `도메인 (${domains.length})`
-                            : `와이어프레임 (${new Set(wireframes.map((w) => w.name)).size})`}
-                    </button>
-                  ),
-                )}
+                {(
+                  [
+                    'issues',
+                    'plans',
+                    'domains',
+                    'wireframes',
+                    'design',
+                  ] as Tab[]
+                ).map((t) => (
+                  <button
+                    key={t}
+                    className={tab === t ? 'active' : ''}
+                    onClick={() => setTab(t)}
+                  >
+                    {t === 'issues'
+                      ? `이슈 (${issues.length})`
+                      : t === 'plans'
+                        ? `기획 (${plans.length})`
+                        : t === 'domains'
+                          ? `도메인 (${domains.length})`
+                          : t === 'wireframes'
+                            ? `와이어프레임 (${new Set(wireframes.map((w) => w.name)).size})`
+                            : '디자인 시스템'}
+                  </button>
+                ))}
               </div>
             </header>
 
@@ -588,6 +601,8 @@ export function App() {
                     )}
                   </>
                 ))}
+
+              {tab === 'design' && <DesignSystem design={design} />}
             </section>
           </>
         )}
