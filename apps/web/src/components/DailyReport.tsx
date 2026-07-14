@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import type { Issue, DailySummary, DailyCount } from '@issue-board/shared';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import type {
+  Issue,
+  DailySummary,
+  DailyReport as DailyReportData,
+  DailyCount,
+} from '@issue-board/shared';
 import { api } from '../api/client';
-import { DailyActivityGroups, DriveUpload } from './DailyActivity';
-import {
-  dailySummaryText,
-  renderDailyReport,
-  dailyReportFileName,
-} from '../api/dailyReport';
+import { DriveUpload } from './DailyActivity';
+import { dailyReportFileName } from '../api/dailyReport';
 
 /**
  * "일일 업무" 탭 — 날짜별 활동 이력.
@@ -17,17 +20,19 @@ export function DailyReport({
   projectId,
   projectName,
   issues,
-  onSelectIssue,
 }: {
   projectId: string | null;
   projectName: string;
   issues: Issue[];
-  onSelectIssue: (issue: Issue) => void;
 }) {
   const [days, setDays] = useState<DailyCount[]>([]);
   const [date, setDate] = useState<string>(() => todayKst());
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [showReport, setShowReport] = useState(false);
+  // Claude가 생성한 서술형 요약(저장본)
+  const [report, setReport] = useState<DailyReportData | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
 
   // 날짜 목록 — 보드 데이터 변화(SSE 리로드 포함)에 맞춰 갱신
   useEffect(() => {
@@ -69,6 +74,43 @@ export function DailyReport({
       alive = false;
     };
   }, [projectId, date, issues]);
+
+  // 저장된 AI 요약(있으면) 로드
+  useEffect(() => {
+    if (!projectId) {
+      setReport(null);
+      return;
+    }
+    let alive = true;
+    setReport(null);
+    setGenError(null);
+    api
+      .getDailyReport(projectId, date)
+      .then((r) => {
+        if (alive) setReport(r);
+      })
+      .catch(() => {
+        if (alive) setReport(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId, date]);
+
+  const generateReport = async (): Promise<void> => {
+    if (!projectId || generating) return;
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const r = await api.generateDailyReport(projectId, date);
+      setReport(r);
+      if (r.status === 'error') setGenError(r.error ?? '생성에 실패했습니다.');
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   if (!projectId) return null;
 
@@ -133,39 +175,75 @@ export function DailyReport({
               <button
                 type="button"
                 className="ov-report-btn"
+                onClick={generateReport}
+                disabled={generating}
+                title="오늘 변경 스냅샷을 Claude가 읽어 서술형 요약을 생성합니다"
+              >
+                {generating
+                  ? '요약 중…'
+                  : report
+                    ? '↻ 다시 요약'
+                    : '✦ AI 요약하기'}
+              </button>
+            )}
+            {report?.status === 'ready' && report.content && (
+              <button
+                type="button"
+                className="ov-report-btn"
                 onClick={() => setShowReport(true)}
-                title="이 날짜의 보고서를 생성해 미리봅니다"
+                title="생성된 AI 요약 보고서를 미리보고 복사/다운로드합니다"
               >
                 보고서 보기
               </button>
             )}
-            {summary && (
-              <DriveUpload summary={summary} projectName={projectName} />
-            )}
+            <DriveUpload report={report} date={date} projectName={projectName} />
           </div>
 
-          {summary ? (
-            <>
-              {summary.total > 0 && (
-                <p className="ov-daily-summary">{dailySummaryText(summary)}</p>
-              )}
-              <DailyActivityGroups
-                summary={summary}
-                issues={issues}
-                onSelectIssue={onSelectIssue}
-                emptyText="이 날짜에 기록된 변경이 없습니다."
-              />
-            </>
-          ) : (
-            <p className="ov-daily-empty">불러오는 중…</p>
+          {genError && (
+            <p className="ov-daily-empty" style={{ color: 'var(--danger, #d33)' }}>
+              AI 요약 실패: {genError}
+            </p>
           )}
+          {(report?.status === 'ready' && report.content) || generating ? (
+            <div className="ov-ai-report">
+              <div className="ov-ai-report-head">
+                <span className="ov-ai-badge">✦ AI 요약</span>
+                {report && !generating && (
+                  <span className="ov-ai-meta">
+                    {report.model ?? 'claude'} ·{' '}
+                    {report.createdBy === 'schedule' ? '자동' : '수동'} ·{' '}
+                    {new Date(report.updatedAt).toLocaleString('ko-KR')}
+                  </span>
+                )}
+              </div>
+              {generating && !report ? (
+                <p className="ov-daily-empty">Claude가 오늘 변경을 요약하는 중…</p>
+              ) : (
+                <div className="ov-ai-report-body markdown-body">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {report?.content ?? ''}
+                  </ReactMarkdown>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {!summary ? (
+            <p className="ov-daily-empty">불러오는 중…</p>
+          ) : summary.total === 0 ? (
+            <p className="ov-daily-empty">이 날짜에 기록된 변경이 없습니다.</p>
+          ) : !report && !generating ? (
+            <p className="ov-daily-empty">
+              ‘AI 요약하기’를 눌러 이 날짜의 업무 보고서를 생성하세요.
+            </p>
+          ) : null}
         </section>
       </div>
 
-      {showReport && summary && (
+      {showReport && report?.status === 'ready' && (
         <ReportModal
-          markdown={renderDailyReport(summary, projectName)}
-          fileName={`${dailyReportFileName(summary.date, projectName)}.md`}
+          markdown={report.content}
+          fileName={`${dailyReportFileName(date, projectName)}.md`}
           onClose={() => setShowReport(false)}
         />
       )}

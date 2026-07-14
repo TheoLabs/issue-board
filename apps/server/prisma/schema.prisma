@@ -25,6 +25,7 @@ model Project {
   domains    Domain[]
   design     Design?
   activities ActivityLog[]
+  dailySummaries DailySummary[]
 }
 
 // 이슈보드 변경 이력(감사 로그). REST/MCP 어느 경로의 write든 Service 계층에서 한 행씩 기록.
@@ -47,6 +48,35 @@ model ActivityLog {
   createdAt  DateTime @default(now())
 
   @@index([projectId, createdAt])
+}
+
+// Claude(CLI)가 그날의 활동 로그(스냅샷)를 읽어 서술한 일일 업무 요약.
+// 프론트의 규칙 기반 렌더(dailyReport.ts)와 달리, LLM이 "무슨 작업이 이뤄졌는지"를 서술한다.
+// 수동('AI 요약하기' 버튼) 또는 스케줄(매일 cron)로 생성되며 projectId+date로 upsert(재생성=갱신).
+model DailySummary {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // 대상 날짜 (요청 타임존 기준 YYYY-MM-DD)
+  date      String
+  timezone  String   @default("Asia/Seoul")
+  // Claude가 생성한 서술형 마크다운 본문 (status=ready일 때만 유효)
+  content   String   @default("")
+  // 사용 모델(claude CLI 기본값이면 null일 수 있음)
+  model     String?
+  // pending(생성 중) | ready(완료) | error(실패)
+  status    String   @default("ready")
+  // status=error일 때 원인 메시지
+  error     String?
+  // 요약 시점 활동 건수 (0이면 요약 생략 대상)
+  activityCount Int  @default(0)
+  // manual(버튼) | schedule(cron)
+  createdBy String   @default("manual")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, date])
+  @@index([projectId])
 }
 
 // 프로젝트당 하나의 디자인 시스템 (색·타이포·간격 등 토큰). 이름 대신 프로젝트로 upsert.

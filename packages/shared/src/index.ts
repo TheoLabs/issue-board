@@ -371,12 +371,50 @@ export interface DailySummary {
   activities: Activity[];
 }
 
+/** 일일 요약 생성 상태 */
+export const DAILY_REPORT_STATUS = ['pending', 'ready', 'error'] as const;
+export type DailyReportStatus = (typeof DAILY_REPORT_STATUS)[number];
+
+/**
+ * Claude(CLI)가 그날의 활동 스냅샷을 읽어 서술한 일일 업무 요약(저장본).
+ * 규칙 기반 렌더(renderDailyReport)와 달리 LLM이 "무슨 작업이 이뤄졌는지"를 서술한다.
+ */
+export interface DailyReport {
+  projectId: string;
+  /** 대상 날짜 (요청 타임존 기준 YYYY-MM-DD) */
+  date: string;
+  timezone: string;
+  /** 서술형 마크다운 본문 (status=ready일 때만 유효) */
+  content: string;
+  /** 사용 모델 (CLI 기본값이면 null일 수 있음) */
+  model: string | null;
+  status: DailyReportStatus;
+  /** status=error일 때 원인 */
+  error: string | null;
+  /** 요약 시점 활동 건수 */
+  activityCount: number;
+  /** manual(버튼) | schedule(cron) */
+  createdBy: string;
+  /** 생성/갱신 시각 (UTC ISO) */
+  updatedAt: string;
+}
+
 /** 활동이 있었던 하루 (날짜 목록용). 최신 날짜가 먼저. */
 export interface DailyCount {
   /** 타임존 기준 날짜 (YYYY-MM-DD) */
   date: string;
   /** 그날 활동 건수 */
   total: number;
+}
+
+/** 주간 이슈 추이 한 점 (번다운·속도 차트용). 오름차순. */
+export interface WeeklyActivityPoint {
+  /** 그 주의 시작일(월요일, YYYY-MM-DD, tz 기준) */
+  weekStart: string;
+  /** 그 주에 생성된 이슈 수 */
+  created: number;
+  /** 그 주에 done으로 전이된 이슈 수 */
+  done: number;
 }
 
 // ─── SSE 이벤트 ───

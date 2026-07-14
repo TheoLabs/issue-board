@@ -8,6 +8,7 @@ import type {
   DailyCount,
   DailySummary,
   FieldChange,
+  WeeklyActivityPoint,
 } from '@issue-board/shared';
 import { ACTIVITY_ACTION, ACTIVITY_ENTITY, ACTIVITY_SOURCE } from '@issue-board/shared';
 import type { ActivityLog as PrismaActivityLog } from '@prisma/client';
@@ -101,6 +102,60 @@ export class ActivityService {
       .sort((a, b) => (a.date < b.date ? 1 : -1));
   }
 
+  /**
+   * 주간 이슈 추이 (생성 vs 완료). 번다운·속도 차트용.
+   * 데이터가 있는 최초 주 ~ 이번 주를 채우되 최대 weeks개로 제한.
+   * created는 issue.createdAt, done은 status_changed→done 활동 기준.
+   */
+  async trend(
+    projectId: string,
+    weeks = 12,
+    timezone: string = DEFAULT_TZ,
+  ): Promise<WeeklyActivityPoint[]> {
+    const [issues, acts] = await Promise.all([
+      this.prisma.issue.findMany({
+        where: { projectId },
+        select: { createdAt: true },
+      }),
+      this.prisma.activityLog.findMany({
+        where: { projectId, entityType: 'issue', action: 'status_changed' },
+        select: { createdAt: true, changes: true },
+      }),
+    ]);
+
+    const createdByWeek = new Map<string, number>();
+    for (const i of issues) {
+      const w = weekStartStr(i.createdAt, timezone);
+      createdByWeek.set(w, (createdByWeek.get(w) ?? 0) + 1);
+    }
+    const doneByWeek = new Map<string, number>();
+    for (const a of acts) {
+      if (!a.changes) continue;
+      let to: string | undefined;
+      try {
+        to = (JSON.parse(a.changes) as Record<string, FieldChange>)?.status
+          ?.to as string | undefined;
+      } catch {
+        to = undefined;
+      }
+      if (to === 'done') {
+        const w = weekStartStr(a.createdAt, timezone);
+        doneByWeek.set(w, (doneByWeek.get(w) ?? 0) + 1);
+      }
+    }
+
+    const current = weekStartStr(new Date(), timezone);
+    const stamps = [...createdByWeek.keys(), ...doneByWeek.keys(), current].sort();
+    const start = stamps[0] ?? current;
+    const all = weekRange(start, current);
+    const window = all.length > weeks ? all.slice(all.length - weeks) : all;
+    return window.map((w) => ({
+      weekStart: w,
+      created: createdByWeek.get(w) ?? 0,
+      done: doneByWeek.get(w) ?? 0,
+    }));
+  }
+
   /** 특정 프로젝트의 하루치 활동 목록 (최신순, 원자 단위) */
   async listByDay(
     projectId: string,
@@ -192,6 +247,34 @@ function zonedDateStr(at: Date, tz: string): string {
 /** 타임존 tz에서의 오늘 날짜 (YYYY-MM-DD) */
 function todayInTz(tz: string): string {
   return zonedDateStr(new Date(), tz);
+}
+
+/** 순간 at가 속한 주의 월요일(YYYY-MM-DD, tz 기준) */
+function weekStartStr(at: Date, tz: string): string {
+  return mondayOf(zonedDateStr(at, tz));
+}
+
+/** YYYY-MM-DD → 그 날이 속한 주의 월요일(YYYY-MM-DD) */
+function mondayOf(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const diff = (dt.getUTCDay() + 6) % 7; // 월요일까지의 일수 (일=0 → 6)
+  dt.setUTCDate(dt.getUTCDate() - diff);
+  return dt.toISOString().slice(0, 10);
+}
+
+/** 월요일 startMon ~ endMon(포함)까지 7일 간격 월요일 목록(오름차순) */
+function weekRange(startMon: string, endMon: string): string[] {
+  const [y, m, d] = startMon.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const out: string[] = [];
+  for (let i = 0; i < 520; i++) {
+    const s = dt.toISOString().slice(0, 10);
+    out.push(s);
+    if (s >= endMon) break;
+    dt.setUTCDate(dt.getUTCDate() + 7);
+  }
+  return out;
 }
 
 /**

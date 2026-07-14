@@ -1,12 +1,16 @@
+import { useEffect, useState } from 'react';
 import type {
   Plan,
   Issue,
   Domain,
   Wireframe,
   Design,
+  DailyReport,
   IssueStatus,
   IssuePriority,
 } from '@issue-board/shared';
+import { api } from '../api/client';
+import { Analytics } from './Analytics';
 
 /**
  * 대시보드(개요) 탭. 로드된 데이터로 프로젝트 현황을 한눈에 요약한다.
@@ -28,6 +32,16 @@ const PRIO_META: { key: IssuePriority; label: string; color: string }[] = [
   { key: 'medium', label: '보통', color: 'var(--prio-medium)' },
   { key: 'low', label: '낮음', color: 'var(--prio-low)' },
 ];
+
+/** 보고서 본문에서 제목(첫 heading 줄)만 추출. 앞의 #·공백 제거. */
+function reportTitle(content: string): string {
+  const first =
+    content
+      .split('\n')
+      .map((l) => l.trim())
+      .find(Boolean) ?? '';
+  return first.replace(/^#+\s*/, '');
+}
 
 function SegBar({
   items,
@@ -66,6 +80,7 @@ function SegBar({
 }
 
 export function Overview({
+  projectId,
   plans,
   issues,
   domains,
@@ -74,14 +89,37 @@ export function Overview({
   onGoTab,
   onSelectIssue,
 }: {
+  projectId: string | null;
   plans: Plan[];
   issues: Issue[];
   domains: Domain[];
   wireframes: Wireframe[];
   design: Design | null;
-  onGoTab: (tab: 'issues' | 'plans' | 'domains' | 'wireframes' | 'design') => void;
+  onGoTab: (
+    tab: 'issues' | 'plans' | 'domains' | 'wireframes' | 'design' | 'daily',
+  ) => void;
   onSelectIssue: (issue: Issue) => void;
 }) {
+  // 오늘의 일일 업무 보고 유무(있으면 제목만 표시). undefined=확인 중, null=없음
+  const [todayReport, setTodayReport] = useState<
+    DailyReport | null | undefined
+  >(undefined);
+  useEffect(() => {
+    if (!projectId) {
+      setTodayReport(null);
+      return;
+    }
+    let alive = true;
+    setTodayReport(undefined);
+    api
+      .getDailyReport(projectId)
+      .then((r) => alive && setTodayReport(r))
+      .catch(() => alive && setTodayReport(null));
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
   const total = issues.length;
   const doneN = issues.filter((i) => i.status === 'done').length;
   const pct = total ? Math.round((doneN / total) * 100) : 0;
@@ -112,8 +150,39 @@ export function Overview({
       return pb - pa;
     });
 
+  const reportReady =
+    !!todayReport && todayReport.status === 'ready' && !!todayReport.content;
+
   return (
     <div className="ov">
+      {/* 오늘의 일일 업무 보고 유무 (있으면 제목만, 클릭 시 일일 업무 탭으로) */}
+      <button
+        className="ov-today"
+        onClick={() => onGoTab('daily')}
+        title="일일 업무 탭으로 이동"
+      >
+        <span
+          className={
+            'ov-today-dot' +
+            (todayReport === undefined
+              ? ''
+              : reportReady
+                ? ' ov-today-dot--on'
+                : ' ov-today-dot--off')
+          }
+        />
+        <span className="ov-today-label">오늘의 일일 업무 보고</span>
+        {todayReport === undefined ? (
+          <span className="ov-today-status">확인 중…</span>
+        ) : reportReady ? (
+          <span className="ov-today-title">{reportTitle(todayReport.content)}</span>
+        ) : (
+          <span className="ov-today-status ov-today-status--off">
+            아직 생성 전 · 눌러서 생성
+          </span>
+        )}
+      </button>
+
       {/* KPI 타일 */}
       <div className="ov-kpis">
         <div className="ov-kpi ov-kpi--accent">
@@ -167,6 +236,9 @@ export function Overview({
           <SegBar items={prioItems} />
         </section>
       </div>
+
+      {/* 진행 분석 (가치×노력 매트릭스 + 시계열) */}
+      {projectId && <Analytics projectId={projectId} issues={issues} />}
 
       {/* 에픽 진행률 */}
       {epicRows.length > 0 && (

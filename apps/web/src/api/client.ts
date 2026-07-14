@@ -7,7 +7,9 @@ import type {
   Domain,
   Design,
   DailySummary,
+  DailyReport,
   DailyCount,
+  WeeklyActivityPoint,
   UpdateIssueDto,
   UpdatePlanDto,
 } from '@issue-board/shared';
@@ -79,4 +81,30 @@ export const api = {
   /** 활동이 있었던 날짜 목록(최신순, 날짜별 건수) */
   listActivityDays: (projectId: string) =>
     req<DailyCount[]>(`/projects/${projectId}/activity/days`),
+
+  /** Claude가 생성해 저장한 서술형 일일 요약(저장본). 없으면 null. */
+  getDailyReport: async (
+    projectId: string,
+    date?: string,
+  ): Promise<DailyReport | null> => {
+    const res = await fetch(
+      `${BASE}/projects/${projectId}/activity/daily/report${date ? `?date=${date}` : ''}`,
+    );
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text ? (JSON.parse(text) as DailyReport) : null;
+  },
+
+  /** 그날의 활동 스냅샷으로 Claude(CLI)를 호출해 요약을 생성/재생성한다. */
+  generateDailyReport: (projectId: string, date?: string) =>
+    req<DailyReport>(
+      `/projects/${projectId}/activity/daily/report${date ? `?date=${date}` : ''}`,
+      { method: 'POST' },
+    ),
+
+  /** 주간 이슈 추이(생성 vs 완료). 번다운·속도 차트용. */
+  getActivityTrend: (projectId: string, weeks = 12) =>
+    req<WeeklyActivityPoint[]>(
+      `/projects/${projectId}/activity/trend?weeks=${weeks}`,
+    ),
 };

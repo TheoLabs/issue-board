@@ -86,6 +86,8 @@ export function App() {
     : 'overview';
   const routePlanId = tab === 'plans' ? (pathSegs[1] ?? null) : null;
   const selectedIssueId = searchParams.get('issue');
+  // 딥링크: ?project=<id> 로 특정 프로젝트를 지정할 수 있다(보고서 링크 등)
+  const urlProjectId = searchParams.get('project');
   // 이슈 기획 필터: null=전체, '__none__'=기획 없음, 그 외=planId
   const [filterPlanId, setFilterPlanId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<IssueStatus | ''>('');
@@ -103,6 +105,14 @@ export function App() {
       if (p.length > 0) setSelectedId((cur) => cur ?? p[0].id);
     });
   }, []);
+
+  // 딥링크 수신: URL의 ?project=<id> 가 유효하면 그 프로젝트를 선택한다.
+  // (보고서의 '점검 필요' 딥링크로 진입 시 올바른 프로젝트로 전환되게 함)
+  useEffect(() => {
+    if (urlProjectId && projects.some((p) => p.id === urlProjectId)) {
+      setSelectedId(urlProjectId);
+    }
+  }, [urlProjectId, projects]);
 
   const loadProject = useCallback((projectId: string) => {
     Promise.all([
@@ -171,6 +181,14 @@ export function App() {
 
   // 내비게이션 헬퍼 (URL이 화면의 진실)
   const goTab = (t: Tab) => navigate('/' + t);
+  // 프로젝트 선택: 상태 + URL(?project=)을 함께 갱신해 딥링크가 항상 정확한 프로젝트를 가리키게 한다.
+  const selectProject = (id: string) => {
+    setSelectedId(id);
+    const sp = new URLSearchParams(location.search);
+    sp.set('project', id);
+    sp.delete('issue'); // 프로젝트가 바뀌면 열린 이슈 드로어는 닫는다
+    navigate({ pathname: location.pathname, search: sp.toString() });
+  };
   const openIssue = (issue: Issue) => {
     const sp = new URLSearchParams(location.search);
     sp.set('issue', issue.id);
@@ -338,7 +356,7 @@ export function App() {
             <button
               key={p.id}
               className={p.id === selectedId ? 'active' : ''}
-              onClick={() => setSelectedId(p.id)}
+              onClick={() => selectProject(p.id)}
             >
               {p.name}
             </button>
@@ -398,6 +416,7 @@ export function App() {
             <section className="panel">
               {tab === 'overview' && (
                 <Overview
+                  projectId={selectedId}
                   plans={plans}
                   issues={issues}
                   domains={domains}
@@ -413,7 +432,6 @@ export function App() {
                   projectId={selectedId}
                   projectName={selected?.name ?? ''}
                   issues={issues}
-                  onSelectIssue={openIssue}
                 />
               )}
 

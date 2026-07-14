@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { EventsModule } from './events/events.module';
 import { ActivityModule } from './activity/activity.module';
@@ -12,6 +13,7 @@ import { McpModule } from './mcp/mcp.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     PrismaModule,
     EventsModule,
     ActivityModule,
