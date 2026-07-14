@@ -8,8 +8,10 @@
     "dev:server": "pnpm --filter @issue-board/server dev",
     "dev:web": "pnpm --filter @issue-board/web dev",
     "build": "pnpm -r build",
+    "build:shared": "pnpm --filter @issue-board/shared build",
     "db:migrate": "pnpm --filter @issue-board/server db:migrate",
     "db:generate": "pnpm --filter @issue-board/server db:generate",
+    "db:sync": "pnpm --filter @issue-board/server db:sync",
     "db:studio": "pnpm --filter @issue-board/server db:studio"
   },
   "engines": {

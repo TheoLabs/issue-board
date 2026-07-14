@@ -3,12 +3,14 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "nest start --watch",
+    "dev": "concurrently -n nest,prisma -c blue,magenta \"nest start --watch\" \"node scripts/prisma-sync.mjs\"",
+    "dev:server": "nest start --watch",
     "build": "nest build",
     "typecheck": "tsc --noEmit",
     "start": "node dist/src/main.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:sync": "node scripts/prisma-sync.mjs",
     "db:studio": "prisma studio"
   },
   "dependencies": {
@@ -32,6 +34,7 @@
     "@swc/core": "^1.10.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
+    "concurrently": "^10.0.3",
     "prisma": "^6.2.0",
     "typescript": "^5.7.2"
   }
