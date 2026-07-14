@@ -1764,6 +1764,129 @@ code {
   font-size: 13px;
   color: var(--muted);
 }
+/* 일일 업무 탭 — 줄글 정리 */
+.ov-daily-summary {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fg, inherit);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 6px;
+}
+/* 일일 업무 탭 — 날짜 이동 */
+.daily-datenav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.daily-datenav-btn {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface-2, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.daily-datenav-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+.daily-datenav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.daily-dateinput {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg, inherit);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  color-scheme: light dark;
+}
+/* 보고서 보기 버튼(중립 톤) + 미리보기 모달 */
+.ov-report-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg, inherit);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+.ov-report-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, #000 50%, transparent);
+}
+.report-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100%);
+  max-height: 85vh;
+  background: var(--surface, var(--bg, #fff));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.report-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.report-modal-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.report-modal-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.report-modal-close {
+  font-size: 14px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.report-modal-close:hover {
+  background: color-mix(in srgb, var(--fg, #000) 8%, transparent);
+}
+.report-pre {
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--fg, inherit);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 /* 구글 드라이브 업로드 */
 .ov-drive {
   display: inline-flex;

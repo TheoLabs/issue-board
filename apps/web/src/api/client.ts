@@ -7,6 +7,7 @@ import type {
   Domain,
   Design,
   DailySummary,
+  DailyCount,
   UpdateIssueDto,
   UpdatePlanDto,
 } from '@issue-board/shared';
@@ -74,4 +75,8 @@ export const api = {
     req<DailySummary>(
       `/projects/${projectId}/activity/daily${date ? `?date=${date}` : ''}`,
     ),
+
+  /** 활동이 있었던 날짜 목록(최신순, 날짜별 건수) */
+  listActivityDays: (projectId: string) =>
+    req<DailyCount[]>(`/projects/${projectId}/activity/days`),
 };

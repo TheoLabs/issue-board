@@ -371,6 +371,14 @@ export interface DailySummary {
   activities: Activity[];
 }
 
+/** 활동이 있었던 하루 (날짜 목록용). 최신 날짜가 먼저. */
+export interface DailyCount {
+  /** 타임존 기준 날짜 (YYYY-MM-DD) */
+  date: string;
+  /** 그날 활동 건수 */
+  total: number;
+}
+
 // ─── SSE 이벤트 ───
 
 export type BoardEventType =

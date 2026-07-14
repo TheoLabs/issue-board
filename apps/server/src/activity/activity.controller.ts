@@ -1,10 +1,22 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import type { DailySummary } from '@issue-board/shared';
+import type { DailyCount, DailySummary } from '@issue-board/shared';
 import { ActivityService } from './activity.service';
 
 @Controller()
 export class ActivityController {
   constructor(private readonly activity: ActivityService) {}
+
+  /**
+   * GET /projects/:projectId/activity/days?tz=Asia/Seoul
+   * 활동이 있었던 날짜 목록(최신순, 날짜별 건수).
+   */
+  @Get('projects/:projectId/activity/days')
+  days(
+    @Param('projectId') projectId: string,
+    @Query('tz') tz?: string,
+  ): Promise<DailyCount[]> {
+    return this.activity.listDays(projectId, tz || undefined);
+  }
 
   /**
    * GET /projects/:projectId/activity/daily?date=YYYY-MM-DD&tz=Asia/Seoul

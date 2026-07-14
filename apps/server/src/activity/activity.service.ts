@@ -5,6 +5,7 @@ import type {
   ActivityEntity,
   ActivitySource,
   BoardEventType,
+  DailyCount,
   DailySummary,
   FieldChange,
 } from '@issue-board/shared';
@@ -75,6 +76,29 @@ export class ActivityService {
       projectId: input.projectId,
       entityId: input.entityId,
     });
+  }
+
+  /**
+   * 활동이 있었던 날짜 목록(최신순, 날짜별 건수). date picker의 좌측 목록용.
+   * timezone 기준 달력 날짜로 버킷팅한다.
+   */
+  async listDays(
+    projectId: string,
+    timezone: string = DEFAULT_TZ,
+  ): Promise<DailyCount[]> {
+    const rows = await this.prisma.activityLog.findMany({
+      where: { projectId },
+      select: { createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      const day = zonedDateStr(r.createdAt, timezone);
+      counts.set(day, (counts.get(day) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([date, total]) => ({ date, total }))
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
   }
 
   /** 특정 프로젝트의 하루치 활동 목록 (최신순, 원자 단위) */
@@ -155,14 +179,19 @@ function toActivity(row: PrismaActivityLog): Activity {
   };
 }
 
-/** 타임존 tz에서의 오늘 날짜 (YYYY-MM-DD) */
-function todayInTz(tz: string): string {
+/** 순간 at를 타임존 tz의 달력 날짜(YYYY-MM-DD)로 포맷 */
+function zonedDateStr(at: Date, tz: string): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: tz,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date());
+  }).format(at);
+}
+
+/** 타임존 tz에서의 오늘 날짜 (YYYY-MM-DD) */
+function todayInTz(tz: string): string {
+  return zonedDateStr(new Date(), tz);
 }
 
 /**

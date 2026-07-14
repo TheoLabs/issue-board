@@ -24,11 +24,13 @@ import { WireframeViewer } from './components/WireframeViewer';
 import { DomainView } from './components/DomainView';
 import { DesignSystem } from './components/DesignSystem';
 import { Overview } from './components/Overview';
+import { DailyReport } from './components/DailyReport';
 import { Erd } from './components/Erd';
 import { PlanPanel } from './components/PlanPanel';
 
 type Tab =
   | 'overview'
+  | 'daily'
   | 'plans'
   | 'issues'
   | 'wireframes'
@@ -37,6 +39,7 @@ type Tab =
 
 const TABS: Tab[] = [
   'overview',
+  'daily',
   'plans',
   'issues',
   'wireframes',
@@ -361,6 +364,7 @@ export function App() {
                 {(
                   [
                     'overview',
+                    'daily',
                     'issues',
                     'plans',
                     'domains',
@@ -375,15 +379,17 @@ export function App() {
                   >
                     {t === 'overview'
                       ? '대시보드'
-                      : t === 'issues'
-                        ? `이슈 (${issues.length})`
-                        : t === 'plans'
-                          ? `기획 (${plans.length})`
-                          : t === 'domains'
-                            ? `도메인 (${domains.length})`
-                            : t === 'wireframes'
-                              ? `와이어프레임 (${new Set(wireframes.map((w) => w.name)).size})`
-                              : '디자인 시스템'}
+                      : t === 'daily'
+                        ? '일일 업무'
+                        : t === 'issues'
+                          ? `이슈 (${issues.length})`
+                          : t === 'plans'
+                            ? `기획 (${plans.length})`
+                            : t === 'domains'
+                              ? `도메인 (${domains.length})`
+                              : t === 'wireframes'
+                                ? `와이어프레임 (${new Set(wireframes.map((w) => w.name)).size})`
+                                : '디자인 시스템'}
                   </button>
                 ))}
               </div>
@@ -392,14 +398,21 @@ export function App() {
             <section className="panel">
               {tab === 'overview' && (
                 <Overview
-                  projectId={selectedId}
-                  projectName={selected?.name ?? ''}
                   plans={plans}
                   issues={issues}
                   domains={domains}
                   wireframes={wireframes}
                   design={design}
                   onGoTab={goTab}
+                  onSelectIssue={openIssue}
+                />
+              )}
+
+              {tab === 'daily' && (
+                <DailyReport
+                  projectId={selectedId}
+                  projectName={selected?.name ?? ''}
+                  issues={issues}
                   onSelectIssue={openIssue}
                 />
               )}
