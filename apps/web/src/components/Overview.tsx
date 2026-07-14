@@ -13,6 +13,12 @@ import type {
   IssuePriority,
 } from '@issue-board/shared';
 import { api } from '../api/client';
+import {
+  uploadDailyReport,
+  isDriveConfigured,
+  type DriveUploadResult,
+} from '../api/drive';
+import { renderDailyReport, dailyReportFileName } from '../api/dailyReport';
 
 /**
  * 대시보드(개요) 탭. 로드된 데이터로 프로젝트 현황을 한눈에 요약한다.
@@ -99,6 +105,7 @@ function SegBar({
 
 export function Overview({
   projectId,
+  projectName,
   plans,
   issues,
   domains,
@@ -108,6 +115,7 @@ export function Overview({
   onSelectIssue,
 }: {
   projectId: string | null;
+  projectName: string;
   plans: Plan[];
   issues: Issue[];
   domains: Domain[];
@@ -213,7 +221,12 @@ export function Overview({
       </div>
 
       {/* 오늘의 작업 */}
-      <DailyWork summary={summary} onSelectIssue={onSelectIssue} issues={issues} />
+      <DailyWork
+        summary={summary}
+        projectName={projectName}
+        onSelectIssue={onSelectIssue}
+        issues={issues}
+      />
 
       {/* 분포 */}
       <div className="ov-grid2">
@@ -263,10 +276,12 @@ export function Overview({
 /** 오늘 이 프로젝트에서 일어난 변경을 엔티티별로 묶어 보여준다. */
 function DailyWork({
   summary,
+  projectName,
   issues,
   onSelectIssue,
 }: {
   summary: DailySummary | null;
+  projectName: string;
   issues: Issue[];
   onSelectIssue: (issue: Issue) => void;
 }) {
@@ -283,6 +298,7 @@ function DailyWork({
         <h3 className="ov-card-title">오늘의 작업</h3>
         <span className="ov-daily-date">{summary.date}</span>
         <span className="ov-daily-total">{summary.total}건</span>
+        <DriveUpload summary={summary} projectName={projectName} />
       </div>
 
       {summary.total === 0 ? (
@@ -335,5 +351,86 @@ function DailyWork({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * 오늘의 요약을 구글 드라이브에 업로드하는 버튼.
+ * 브라우저에서 직접(GIS access_token) 올린다 — 서버·secret 불필요.
+ * 같은 날짜 문서가 있으면 갱신, 없으면 새 Google Docs 문서를 만든다.
+ */
+function DriveUpload({
+  summary,
+  projectName,
+}: {
+  summary: DailySummary;
+  projectName: string;
+}) {
+  type State =
+    | { kind: 'idle' }
+    | { kind: 'uploading' }
+    | { kind: 'done'; result: DriveUploadResult }
+    | { kind: 'error'; message: string };
+  const [state, setState] = useState<State>({ kind: 'idle' });
+
+  const configured = isDriveConfigured();
+  const disabled =
+    !configured ||
+    !projectName ||
+    summary.total === 0 ||
+    state.kind === 'uploading';
+
+  const upload = async (): Promise<void> => {
+    setState({ kind: 'uploading' });
+    try {
+      const markdown = renderDailyReport(summary, projectName);
+      const fileName = dailyReportFileName(summary.date, projectName);
+      const result = await uploadDailyReport({
+        projectName,
+        fileName,
+        markdown,
+      });
+      setState({ kind: 'done', result });
+    } catch (err) {
+      setState({
+        kind: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
+  const title = !configured
+    ? 'VITE_GOOGLE_CLIENT_ID 미설정 — 웹 앱 .env 에 구글 클라이언트 ID를 넣어주세요'
+    : summary.total === 0
+      ? '오늘 기록된 변경이 없어 업로드할 내용이 없습니다'
+      : '오늘의 요약을 구글 드라이브에 올립니다';
+
+  return (
+    <span className="ov-drive">
+      <button
+        type="button"
+        className="ov-drive-btn"
+        onClick={upload}
+        disabled={disabled}
+        title={title}
+      >
+        {state.kind === 'uploading' ? '업로드 중…' : '드라이브 업로드'}
+      </button>
+      {state.kind === 'done' && (
+        <a
+          className="ov-drive-link"
+          href={state.result.webViewLink}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {state.result.updated ? '갱신됨 · 문서 열기 ↗' : '업로드됨 · 문서 열기 ↗'}
+        </a>
+      )}
+      {state.kind === 'error' && (
+        <span className="ov-drive-err" title={state.message}>
+          실패: {state.message}
+        </span>
+      )}
+    </span>
   );
 }

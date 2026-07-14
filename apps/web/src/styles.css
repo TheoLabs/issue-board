@@ -1764,6 +1764,50 @@ code {
   font-size: 13px;
   color: var(--muted);
 }
+/* 구글 드라이브 업로드 */
+.ov-drive {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ov-drive-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 8px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+.ov-drive-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.ov-drive-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ov-drive-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ov-drive-link:hover {
+  text-decoration: underline;
+}
+.ov-drive-err {
+  font-size: 12px;
+  color: var(--prio-high);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ov-daily-groups {
   display: flex;
   flex-direction: column;

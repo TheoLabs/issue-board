@@ -77,6 +77,34 @@ Claude가 MCP 툴을 순차 호출한다:
 | `create_project` / `create_plan` / `create_wireframe` / `create_issue` | write | 최초 생성 |
 | `update_issue_status` / `append_plan_note` | write | 진행 갱신 |
 
+## 일일 업무 요약 → 구글 드라이브 업로드
+
+개요(Overview) 탭의 **"오늘의 작업"** 카드에 **[드라이브 업로드]** 버튼이 있다.
+누르면 오늘의 활동 로그를 [`ib-daily`](agent/commands/ib-daily.md) 템플릿 그대로
+정규화한 마크다운을 만들어 구글 드라이브에 **Google Docs 문서**로 올린다.
+
+- 폴더 구조: `이슈보드 일일요약 / {프로젝트명} / {날짜} {프로젝트명} 일일요약`
+- 같은 날짜 문서가 있으면 **새로 만들지 않고 갱신**(덮어쓰기)한다.
+- 브라우저에서 직접 올린다(**서버·client_secret 불필요**). Google Identity
+  Services 토큰으로 `drive.file` 스코프만 사용 — 이 앱이 만든 파일만 접근한다.
+
+### 일회성 설정 (구글 OAuth 클라이언트 ID)
+
+1. Google Cloud Console → **API 및 서비스 → 사용자 인증 정보** 에서
+   **OAuth 클라이언트 ID(웹 애플리케이션)** 를 만든다. *(client_secret은 안 쓴다.)*
+2. **승인된 JavaScript 원본**에 앱 origin을 추가한다: `http://localhost:5173`
+3. **Google Drive API** 를 사용 설정한다.
+4. 발급된 클라이언트 ID를 웹 앱 `.env` 에 넣는다:
+   ```bash
+   # apps/web/.env  (apps/web/.env.example 참고, git 제외됨)
+   VITE_GOOGLE_CLIENT_ID=<your-client-id>.apps.googleusercontent.com
+   ```
+5. `pnpm dev:web` 을 (재)시작한다. Vite는 시작 시 `.env` 를 읽는다.
+
+> ID가 없거나 미설정이면 버튼은 비활성화되고, 필요한 환경변수를 툴팁으로 안내한다.
+> 토큰은 브라우저 세션에만 ~1시간 유지되어, 만료 시 클릭 한 번으로 재동의한다.
+> 무인 자동 업로드가 필요하면 스케줄에서 `/ib-daily`(MCP 연동)를 돌린다.
+
 ## 빌드 & 검증
 
 ```bash
