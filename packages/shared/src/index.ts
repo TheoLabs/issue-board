@@ -11,8 +11,34 @@ export type PlanStatus = (typeof PLAN_STATUS)[number];
 export const ISSUE_STATUS = ['todo', 'in_progress', 'done', 'blocked'] as const;
 export type IssueStatus = (typeof ISSUE_STATUS)[number];
 
+export const ISSUE_TYPE = ['epic', 'task'] as const;
+export type IssueType = (typeof ISSUE_TYPE)[number];
+
 export const ISSUE_PRIORITY = ['low', 'medium', 'high'] as const;
 export type IssuePriority = (typeof ISSUE_PRIORITY)[number];
+
+/** 가치·노력 레벨 (우선순위 산출 입력) */
+export const ISSUE_LEVEL = ['low', 'medium', 'high'] as const;
+export type IssueLevel = (typeof ISSUE_LEVEL)[number];
+
+/**
+ * Value/Effort 매트릭스로 우선순위를 산출한다 (단일 기준).
+ *          노력 low   med    high
+ * 가치 high: high  high   medium
+ * 가치 med:  high  medium low
+ * 가치 low:  medium low    low
+ */
+export function derivePriority(
+  value: IssueLevel,
+  effort: IssueLevel,
+): IssuePriority {
+  const m: Record<IssueLevel, Record<IssueLevel, IssuePriority>> = {
+    high: { low: 'high', medium: 'high', high: 'medium' },
+    medium: { low: 'high', medium: 'medium', high: 'low' },
+    low: { low: 'medium', medium: 'low', high: 'low' },
+  };
+  return m[value][effort];
+}
 
 export const WIREFRAME_FORMAT = ['html', 'excalidraw', 'mermaid', 'svg'] as const;
 export type WireframeFormat = (typeof WIREFRAME_FORMAT)[number];
@@ -63,8 +89,15 @@ export interface Issue {
   projectId: string;
   title: string;
   body: string;
+  /** 에픽(상위) vs 태스크(하위) */
+  type: IssueType;
   status: IssueStatus;
+  /** value/effort에서 산출됨 */
   priority: IssuePriority;
+  /** 가치 (우선순위 산출 입력) */
+  value: IssueLevel;
+  /** 노력 (우선순위 산출 입력) */
+  effort: IssueLevel;
   labels: string[];
   parentId: string | null;
   /** 파생된 기획 (연동) */
@@ -227,8 +260,11 @@ export interface UpdatePlanDto {
 export interface CreateIssueDto {
   title: string;
   body: string;
+  type?: IssueType;
   status?: IssueStatus;
   priority?: IssuePriority;
+  value?: IssueLevel;
+  effort?: IssueLevel;
   labels?: string[];
   parentId?: string | null;
   planId?: string | null;
@@ -239,8 +275,11 @@ export interface CreateIssueDto {
 export interface UpdateIssueDto {
   title?: string;
   body?: string;
+  type?: IssueType;
   status?: IssueStatus;
   priority?: IssuePriority;
+  value?: IssueLevel;
+  effort?: IssueLevel;
   labels?: string[];
   parentId?: string | null;
   planId?: string | null;
@@ -264,6 +303,72 @@ export interface UpsertDomainDto {
   /** 상태 흐름(생명주기). 상태를 갖는 엔티티만 */
   lifecycle?: DomainLifecycle | null;
   status?: DomainStatus;
+}
+
+// ─── 활동 로그 / 일일 요약 ───
+
+/** 활동이 일어난 엔티티 종류 */
+export const ACTIVITY_ENTITY = [
+  'project',
+  'plan',
+  'issue',
+  'domain',
+  'wireframe',
+  'design',
+] as const;
+export type ActivityEntity = (typeof ACTIVITY_ENTITY)[number];
+
+/** 활동의 성격 */
+export const ACTIVITY_ACTION = [
+  'created',
+  'updated',
+  'status_changed',
+  'snapshot',
+  'linked',
+  'deleted',
+] as const;
+export type ActivityAction = (typeof ACTIVITY_ACTION)[number];
+
+/** 활동 주체: user=웹 대시보드, agent=MCP(Claude/스킬) */
+export const ACTIVITY_SOURCE = ['user', 'agent'] as const;
+export type ActivitySource = (typeof ACTIVITY_SOURCE)[number];
+
+/** 한 필드의 변경 (before → after) */
+export interface FieldChange {
+  from: string | null;
+  to: string | null;
+}
+
+/** 이슈보드에서 일어난 하나의 변경 기록 (감사/일일요약의 원자 단위) */
+export interface Activity {
+  id: string;
+  projectId: string;
+  entityType: ActivityEntity;
+  entityId: string;
+  action: ActivityAction;
+  /** 사람이 읽을 대상 이름/제목 (예: 이슈 제목, 도메인 이름) */
+  title: string;
+  /** 무엇이 어떻게 바뀌었나. { status: { from, to } } 형태. 없으면 null */
+  changes: Record<string, FieldChange> | null;
+  source: ActivitySource;
+  createdAt: string;
+}
+
+/** 하루치 업무 요약 (특정 프로젝트·특정 날짜) */
+export interface DailySummary {
+  projectId: string;
+  /** 요청 타임존 기준 대상 날짜 (YYYY-MM-DD) */
+  date: string;
+  timezone: string;
+  /** 집계 구간 (UTC ISO) */
+  from: string;
+  to: string;
+  total: number;
+  byEntity: Record<ActivityEntity, number>;
+  byAction: Record<ActivityAction, number>;
+  bySource: Record<ActivitySource, number>;
+  /** 최신순 활동 목록 */
+  activities: Activity[];
 }
 
 // ─── SSE 이벤트 ───

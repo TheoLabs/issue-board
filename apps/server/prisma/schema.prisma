@@ -24,6 +24,29 @@ model Project {
   wireframes Wireframe[]
   domains    Domain[]
   design     Design?
+  activities ActivityLog[]
+}
+
+// 이슈보드 변경 이력(감사 로그). REST/MCP 어느 경로의 write든 Service 계층에서 한 행씩 기록.
+// 일일 업무 요약(ib-daily)의 원천 데이터. 이 테이블 도입 시점 이후부터 온전히 쌓인다.
+model ActivityLog {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // project | plan | issue | domain | wireframe | design
+  entityType String
+  entityId   String
+  // created | updated | status_changed | snapshot | linked | deleted
+  action     String
+  // 사람이 읽을 대상 이름/제목 (스냅샷 — 대상이 나중에 삭제돼도 남는다)
+  title      String
+  // 변경 상세 JSON: { field: { from, to } }. 없으면 null
+  changes    String?
+  // user(웹) | agent(MCP/Claude)
+  source     String   @default("agent")
+  createdAt  DateTime @default(now())
+
+  @@index([projectId, createdAt])
 }
 
 // 프로젝트당 하나의 디자인 시스템 (색·타이포·간격 등 토큰). 이름 대신 프로젝트로 upsert.
@@ -79,8 +102,13 @@ model Issue {
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   title     String
   body      String
+  // 에픽(상위) vs 태스크(하위) 명시 구분
+  type      String   @default("task") // epic | task
   status    String   @default("todo") // todo | in_progress | done | blocked
+  // 우선순위는 value/effort에서 산출된다 (derivePriority)
   priority  String   @default("medium") // low | medium | high
+  value     String   @default("medium") // 가치 low | medium | high
+  effort    String   @default("medium") // 노력 low | medium | high
   labels    String   @default("[]") // JSON 문자열 (SQLite는 배열 미지원)
   // 이슈 트리 (기획 → 이슈 분리)
   parentId  String?

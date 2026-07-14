@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Domain, UpsertDomainDto } from '@issue-board/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { EventsService } from '../events/events.service';
+import { ActivityService } from '../activity/activity.service';
 import { toDomain } from '../common/mappers';
 
 /**
@@ -12,7 +12,7 @@ import { toDomain } from '../common/mappers';
 export class DomainsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly events: EventsService,
+    private readonly activity: ActivityService,
   ) {}
 
   async listByProject(projectId: string): Promise<Domain[]> {
@@ -31,6 +31,10 @@ export class DomainsService {
 
   /** name 기준 upsert. 기존 있으면 갱신(status는 명시된 경우만 변경). */
   async upsert(projectId: string, dto: UpsertDomainDto): Promise<Domain> {
+    const existing = await this.prisma.domain.findUnique({
+      where: { projectId_name: { projectId, name: dto.name } },
+      select: { id: true },
+    });
     const columns = JSON.stringify(dto.columns ?? []);
     // lifecycle: 미지정(undefined)이면 갱신 시 기존값 유지, 명시적 null이면 제거.
     const lifecycle =
@@ -57,10 +61,12 @@ export class DomainsService {
       },
     });
     const domain = toDomain(row);
-    this.events.emit({
-      type: 'domain:changed',
+    await this.activity.record({
       projectId,
+      entityType: 'domain',
       entityId: domain.id,
+      action: existing ? 'updated' : 'created',
+      title: domain.name,
     });
     return domain;
   }
@@ -69,10 +75,12 @@ export class DomainsService {
     const row = await this.prisma.domain.findUnique({ where: { id } });
     if (!row) throw new NotFoundException(`Domain ${id} not found`);
     await this.prisma.domain.delete({ where: { id } });
-    this.events.emit({
-      type: 'domain:changed',
+    await this.activity.record({
       projectId: row.projectId,
+      entityType: 'domain',
       entityId: id,
+      action: 'deleted',
+      title: row.name,
     });
   }
 }

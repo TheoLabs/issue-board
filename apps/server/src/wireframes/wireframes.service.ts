@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateWireframeDto, Wireframe } from '@issue-board/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { EventsService } from '../events/events.service';
+import { ActivityService } from '../activity/activity.service';
 import { toWireframe } from '../common/mappers';
 
 /**
@@ -12,7 +12,7 @@ import { toWireframe } from '../common/mappers';
 export class WireframesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly events: EventsService,
+    private readonly activity: ActivityService,
   ) {}
 
   /** 모든 버전을 반환한다 (IA sequence 오름차순 → name → 같은 name 내 version 내림차순).
@@ -65,10 +65,14 @@ export class WireframesService {
       },
     });
     const wireframe = toWireframe(row);
-    this.events.emit({
-      type: 'wireframe:changed',
+    // 같은 name의 v2+는 재생성(updated), 첫 버전은 created로 본다.
+    await this.activity.record({
       projectId,
+      entityType: 'wireframe',
       entityId: wireframe.id,
+      action: version > 1 ? 'updated' : 'created',
+      title: wireframe.name,
+      changes: version > 1 ? { version: { from: null, to: String(version) } } : null,
     });
     return wireframe;
   }
@@ -78,10 +82,12 @@ export class WireframesService {
     const row = await this.prisma.wireframe.findUnique({ where: { id } });
     if (!row) throw new NotFoundException(`Wireframe ${id} not found`);
     await this.prisma.wireframe.delete({ where: { id } });
-    this.events.emit({
-      type: 'wireframe:changed',
+    await this.activity.record({
       projectId: row.projectId,
+      entityType: 'wireframe',
       entityId: id,
+      action: 'deleted',
+      title: row.name,
     });
   }
 }

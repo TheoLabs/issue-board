@@ -12,6 +12,7 @@
 | `commands/ib-wireframe.md` | 생성 2단계 | 기획 → 클릭스루 프로토타입 적재 |
 | `commands/ib-domain.md` | 생성 3단계 | 도메인/컬럼 → 표로 정리해 적재 (첫 설계는 초안) |
 | `commands/ib-issues.md` | 생성 4단계 | 기획 → 이슈 트리 적재 (기획/화면/도메인 연동) |
+| `commands/ib-daily.md` | 회고 | 오늘의 활동을 일일 업무 요약으로 정리해 구글 드라이브에 업로드 |
 | `CLAUDE.snippet.md` | 진행 규칙 | 대상 프로젝트 CLAUDE.md에 붙여 상시 연동 |
 
 `/ib-generate`로 한 번에 돌리거나, 단계를 나눠 개별 커맨드로 돌릴 수 있다 (둘은 같은

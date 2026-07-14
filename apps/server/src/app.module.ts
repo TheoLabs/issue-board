@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
 import { EventsModule } from './events/events.module';
+import { ActivityModule } from './activity/activity.module';
 import { ProjectsModule } from './projects/projects.module';
 import { PlansModule } from './plans/plans.module';
 import { IssuesModule } from './issues/issues.module';
@@ -13,6 +14,7 @@ import { McpModule } from './mcp/mcp.module';
   imports: [
     PrismaModule,
     EventsModule,
+    ActivityModule,
     ProjectsModule,
     PlansModule,
     IssuesModule,

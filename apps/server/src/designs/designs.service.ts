@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Design, UpsertDesignDto } from '@issue-board/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { EventsService } from '../events/events.service';
+import { ActivityService } from '../activity/activity.service';
 import { toDesign } from '../common/mappers';
 
 /**
@@ -12,7 +12,7 @@ import { toDesign } from '../common/mappers';
 export class DesignsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly events: EventsService,
+    private readonly activity: ActivityService,
   ) {}
 
   async getByProject(projectId: string): Promise<Design | null> {
@@ -27,6 +27,10 @@ export class DesignsService {
   }
 
   async upsert(projectId: string, dto: UpsertDesignDto): Promise<Design> {
+    const existing = await this.prisma.design.findUnique({
+      where: { projectId },
+      select: { id: true },
+    });
     const tokens = JSON.stringify(dto.tokens ?? {});
     const row = await this.prisma.design.upsert({
       where: { projectId },
@@ -34,7 +38,13 @@ export class DesignsService {
       update: { tokens, ...(dto.status ? { status: dto.status } : {}) },
     });
     const design = toDesign(row);
-    this.events.emit({ type: 'design:changed', projectId });
+    await this.activity.record({
+      projectId,
+      entityType: 'design',
+      entityId: design.id,
+      action: existing ? 'updated' : 'created',
+      title: '디자인 시스템',
+    });
     return design;
   }
 
@@ -42,6 +52,12 @@ export class DesignsService {
     const row = await this.prisma.design.findUnique({ where: { projectId } });
     if (!row) return;
     await this.prisma.design.delete({ where: { projectId } });
-    this.events.emit({ type: 'design:changed', projectId });
+    await this.activity.record({
+      projectId,
+      entityType: 'design',
+      entityId: row.id,
+      action: 'deleted',
+      title: '디자인 시스템',
+    });
   }
 }
