@@ -6,6 +6,7 @@ import type {
   Wireframe,
   Domain,
   Design,
+  DailySummary,
   UpdateIssueDto,
   UpdatePlanDto,
 } from '@issue-board/shared';
@@ -67,4 +68,10 @@ export const api = {
       headers: { 'If-Match': String(version) },
       body: JSON.stringify(dto),
     }),
+
+  /** 하루치 업무 요약. date 생략 시 서버 tz(기본 Asia/Seoul) 기준 오늘 */
+  getDailySummary: (projectId: string, date?: string) =>
+    req<DailySummary>(
+      `/projects/${projectId}/activity/daily${date ? `?date=${date}` : ''}`,
+    ),
 };

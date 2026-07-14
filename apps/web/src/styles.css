@@ -6,6 +6,7 @@
   --text: #e6e8ec;
   --muted: #8b93a1;
   --accent: #5b8cff;
+  --violet: #a78bfa;
   --prio-high: #ff6b6b;
   --prio-medium: #ffb454;
   --prio-low: #4cc38a;
@@ -335,6 +336,158 @@ code {
 .md-checkbox {
   cursor: pointer;
 }
+/* 이슈 종류 chip (에픽=바이올렛 / 일반=블루) */
+.type-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-right: 6px;
+  vertical-align: middle;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+.type-chip-epic {
+  color: var(--violet);
+  background: color-mix(in srgb, var(--violet) 20%, transparent);
+  border-color: color-mix(in srgb, var(--violet) 45%, transparent);
+}
+.type-chip-task {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.drawer-head-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* 상태 chip (할일/진행중/완료/보류) */
+.status-chip {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status-chip--todo {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 15%, transparent);
+  border-color: color-mix(in srgb, var(--muted) 32%, transparent);
+}
+.status-chip--in_progress {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 36%, transparent);
+}
+.status-chip--done {
+  color: var(--prio-low);
+  background: color-mix(in srgb, var(--prio-low) 15%, transparent);
+  border-color: color-mix(in srgb, var(--prio-low) 36%, transparent);
+}
+.status-chip--blocked {
+  color: var(--prio-high);
+  background: color-mix(in srgb, var(--prio-high) 15%, transparent);
+  border-color: color-mix(in srgb, var(--prio-high) 36%, transparent);
+}
+
+/* 이슈 테이블 트리 (에픽 → 하위 확장) */
+.issue-tree-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.issue-tree-cell.indent {
+  padding-left: 36px;
+}
+.tree-toggle {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition:
+    transform 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+  font-size: 15px;
+  line-height: 1;
+}
+.tree-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.tree-toggle.open {
+  transform: rotate(90deg);
+}
+.tree-toggle-spacer {
+  flex: 0 0 auto;
+  width: 28px;
+}
+.issue-tree-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.issue-tree-count {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 7px;
+  line-height: 16px;
+}
+.issue-list-table tr.child-row {
+  background: color-mix(in srgb, var(--panel-2) 40%, transparent);
+}
+
+/* 드로어 상위/하위 이슈 목록 */
+.issue-rel {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.issue-rel-title {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.issue-rel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+}
+.issue-rel-item:hover {
+  border-color: var(--accent);
+}
+.issue-rel-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .issue-card:hover {
   border-color: var(--accent);
 }
@@ -512,6 +665,182 @@ code {
 .erd svg {
   max-width: 100%;
   height: auto;
+}
+
+/* 대시보드(개요) 탭 */
+.ov {
+  max-width: 980px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.ov-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.ov-kpi {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov-kpi--btn {
+  cursor: pointer;
+  color: inherit;
+  transition:
+    border-color 0.12s ease,
+    transform 0.12s ease;
+}
+.ov-kpi--btn:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.ov-kpi--accent {
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--accent) 16%, var(--panel)),
+    var(--panel)
+  );
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+.ov-kpi-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ov-kpi-value {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.ov-kpi-value--sm {
+  font-size: 20px;
+}
+.ov-kpi-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ov-meter {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  overflow: hidden;
+  margin: 4px 0 2px;
+}
+.ov-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.ov-grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.ov-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.ov-card-title {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ov-segbar {
+  display: flex;
+  gap: 3px;
+  height: 14px;
+  margin-bottom: 12px;
+}
+.ov-seg {
+  border-radius: 3px;
+  min-width: 4px;
+}
+.ov-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.ov-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ov-legend-item b {
+  color: var(--text);
+}
+.ov-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.ov-legend-pct {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.ov-epics {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ov-epic {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 2fr auto;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  padding: 6px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+.ov-epic:hover {
+  background: var(--panel-2);
+}
+.ov-epic-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.ov-epic-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.ov-epic-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--prio-low);
+}
+.ov-epic-count {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .ov-grid2 {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Design System 탭 — 모던 쇼케이스 */
@@ -1405,4 +1734,116 @@ code {
   padding: 14px;
   overflow: auto;
   font-size: 13px;
+}
+
+/* ── 오늘의 작업 (Overview 일일 요약) ── */
+.ov-daily-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.ov-daily-head .ov-card-title {
+  margin: 0;
+}
+.ov-daily-date {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ov-daily-total {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.ov-daily-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ov-daily-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ov-daily-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.ov-daily-group-head b {
+  color: var(--text);
+}
+.ov-daily-icon {
+  font-size: 13px;
+}
+.ov-daily-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov-daily-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.ov-daily-item--btn {
+  cursor: pointer;
+}
+.ov-daily-item--btn:hover {
+  background: var(--panel-2);
+}
+.ov-daily-badge {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 1px 7px;
+  color: var(--bg);
+  background: var(--muted);
+}
+.ov-daily-badge--created {
+  background: var(--prio-low);
+}
+.ov-daily-badge--status_changed,
+.ov-daily-badge--updated {
+  background: var(--accent);
+}
+.ov-daily-badge--snapshot,
+.ov-daily-badge--linked {
+  background: var(--prio-medium);
+}
+.ov-daily-badge--deleted {
+  background: var(--prio-high);
+}
+.ov-daily-title {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-daily-detail {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ov-daily-src {
+  flex: none;
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.7;
 }

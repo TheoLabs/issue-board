@@ -44,7 +44,12 @@ issue-board에 적재한다.
 기획서의 어떤 섹션/기능 번호에서 파생됐는가
 ```
 
-- `priority`: 핵심 경로면 `high`, 보조 기능이면 `medium`, nice-to-have면 `low`.
+- **`value`(가치)·`effort`(노력)**로 평가한다 — **우선순위는 이 둘에서 자동 산출**되므로
+  `priority`를 직접 넣지 마라.
+  - `value`: 사용자/제품 가치. 핵심 유스케이스에 필수면 `high`, 보조면 `medium`, nice-to-have면 `low`.
+  - `effort`: 구현 노력/복잡도. 크면 `high`, 보통 `medium`, 작으면 `low`.
+  - 산출 규칙(참고): 高가치·低노력=높음, 高가치·高노력=보통, 低가치·高노력=낮음 등.
+  - body의 근거(배경/작업 내용)와 일관되게 평가하라.
 - `labels`: 영역 태그(예: `["backend"]`, `["ui"]`, `["infra"]`) — 과하지 않게.
 
 ### 3-1) 연동 (중요)
@@ -62,10 +67,10 @@ issue-board에 적재한다.
 
 ### 4) 보드에 적재 (순서 중요)
 
-1. **에픽을 먼저 생성**한다:
-   `create_issue(projectId, title, body, priority, labels, planId, screenId?, domainId?)`.
-   반환된 각 에픽의 `id`를 기억한다.
-2. 그 다음 **하위 이슈**를 생성하며 `parentId`에 해당 에픽 id를 넣는다
+1. **에픽을 먼저 생성**한다: `create_issue(projectId, title, body, **type="epic"**, value,
+   effort, labels, planId, screenId?, domainId?)`. 반환된 각 에픽의 `id`를 기억한다.
+   - **`type="epic"`으로 명시**한다. 제목에 `[에픽]` 접두사는 붙이지 마라 — 구분은 type이 담당.
+2. 그 다음 **하위 이슈**를 생성하며 `type="task"`(기본), `parentId`에 해당 에픽 id를 넣는다
    (하위 이슈에도 `planId`·`screenId`·`domainId`를 채운다).
 
 ### 5) 보고

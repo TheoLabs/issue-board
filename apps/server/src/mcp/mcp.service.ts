@@ -4,11 +4,15 @@ import { z, type ZodRawShape } from 'zod';
 import {
   ISSUE_STATUS,
   ISSUE_PRIORITY,
+  ISSUE_TYPE,
+  ISSUE_LEVEL,
   WIREFRAME_FORMAT,
   DOMAIN_STATUS,
   PLAN_STATUS,
   type IssueStatus,
   type IssuePriority,
+  type IssueType,
+  type IssueLevel,
   type WireframeFormat,
   type DomainStatus,
   type DomainColumn,
@@ -21,6 +25,7 @@ import { IssuesService } from '../issues/issues.service';
 import { WireframesService } from '../wireframes/wireframes.service';
 import { DomainsService } from '../domains/domains.service';
 import { DesignsService } from '../designs/designs.service';
+import { ActivityService } from '../activity/activity.service';
 import type { DesignTokens } from '@issue-board/shared';
 
 interface ToolResult {
@@ -52,6 +57,7 @@ export class McpService {
     private readonly wireframes: WireframesService,
     private readonly domains: DomainsService,
     private readonly designs: DesignsService,
+    private readonly activity: ActivityService,
   ) {}
 
   /** 요청마다 새 McpServer 인스턴스 생성 (stateless HTTP 트랜스포트) */
@@ -174,6 +180,31 @@ export class McpService {
       '특정 도메인 하나를 반환한다 (컬럼·제약·상태 흐름 포함).',
       { domainId: z.string() },
       async (args) => json(await this.domains.get(args.domainId as string)),
+    );
+
+    this.tool(
+      server,
+      'get_daily_activity',
+      '프로젝트의 하루치 활동(변경 이력)을 요약해 반환한다. 일일 업무 요약(ib-daily) 생성의 원천 데이터. date 생략 시 timezone 기준 오늘. 응답은 total·byEntity·byAction·bySource 집계와 activities(최신순: entityType/action/title/changes/source/createdAt)를 포함한다.',
+      {
+        projectId: z.string(),
+        date: z
+          .string()
+          .optional()
+          .describe('대상 날짜 YYYY-MM-DD (생략 시 timezone 기준 오늘)'),
+        timezone: z
+          .string()
+          .optional()
+          .describe('IANA 타임존 (기본 Asia/Seoul)'),
+      },
+      async (args) =>
+        json(
+          await this.activity.daily(
+            args.projectId as string,
+            args.date as string | undefined,
+            args.timezone as string | undefined,
+          ),
+        ),
     );
 
     this.tool(
@@ -400,11 +431,20 @@ export class McpService {
     this.tool(
       server,
       'create_issue',
-      '이슈를 등록한다. parentId로 이슈 트리(기획→분리)를 구성한다. planId로 파생 기획을, screenId로 관련 와이어프레임 화면(data-screen id)을, domainId로 관련 도메인을 연동한다.',
+      '이슈를 등록한다. type으로 에픽(상위)/태스크(하위)를 명시한다(에픽=type "epic", 하위 작업=type "task", 기본 task). parentId로 이슈 트리를 구성한다. planId로 파생 기획을, screenId로 관련 와이어프레임 화면(data-screen id)을, domainId로 관련 도메인을 연동한다.',
       {
         projectId: z.string(),
         title: z.string(),
         body: z.string(),
+        type: z.enum(ISSUE_TYPE).optional().describe('epic 또는 task (기본 task)'),
+        value: z
+          .enum(ISSUE_LEVEL)
+          .optional()
+          .describe('가치 low/medium/high — 우선순위는 value/effort로 산출됨'),
+        effort: z
+          .enum(ISSUE_LEVEL)
+          .optional()
+          .describe('노력 low/medium/high'),
         priority: z.enum(ISSUE_PRIORITY).optional(),
         labels: z.array(z.string()).optional(),
         parentId: z.string().optional(),
@@ -420,6 +460,9 @@ export class McpService {
           await this.issues.create(args.projectId as string, {
             title: args.title as string,
             body: args.body as string,
+            type: args.type as IssueType | undefined,
+            value: args.value as IssueLevel | undefined,
+            effort: args.effort as IssueLevel | undefined,
             priority: args.priority as IssuePriority | undefined,
             labels: args.labels as string[] | undefined,
             parentId: args.parentId as string | undefined,
@@ -469,11 +512,14 @@ export class McpService {
     this.tool(
       server,
       'update_issue',
-      '이슈의 제목·본문·우선순위·라벨·부모를 수정한다. (상태 변경은 update_issue_status, 연동은 link_issue를 쓴다.) 주지 않은 필드는 그대로 유지된다.',
+      '이슈의 제목·본문·타입(epic/task)·가치(value)·노력(effort)·라벨·부모를 수정한다. value/effort를 바꾸면 우선순위가 자동 재산출된다. (상태 변경은 update_issue_status, 연동은 link_issue.) 주지 않은 필드는 유지된다.',
       {
         issueId: z.string(),
         title: z.string().optional(),
         body: z.string().optional(),
+        type: z.enum(ISSUE_TYPE).optional().describe('epic 또는 task'),
+        value: z.enum(ISSUE_LEVEL).optional().describe('가치 low/medium/high'),
+        effort: z.enum(ISSUE_LEVEL).optional().describe('노력 low/medium/high'),
         priority: z.enum(ISSUE_PRIORITY).optional(),
         labels: z.array(z.string()).optional(),
         parentId: z.string().optional(),
@@ -483,6 +529,9 @@ export class McpService {
           await this.issues.update(args.issueId as string, {
             title: args.title as string | undefined,
             body: args.body as string | undefined,
+            type: args.type as IssueType | undefined,
+            value: args.value as IssueLevel | undefined,
+            effort: args.effort as IssueLevel | undefined,
             priority: args.priority as IssuePriority | undefined,
             labels: args.labels as string[] | undefined,
             parentId: args.parentId as string | undefined,

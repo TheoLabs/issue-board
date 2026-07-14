@@ -80,7 +80,12 @@ export function IssueBoard({
                 role="button"
                 tabIndex={0}
               >
-                <span className="issue-title">{issue.title}</span>
+                <span className="issue-title">
+                  <span className={`type-chip type-chip-${issue.type}`}>
+                    {issue.type === 'epic' ? '에픽' : '일반'}
+                  </span>
+                  {issue.title}
+                </span>
                 <span className="issue-meta">
                   {issue.labels.map((l) => (
                     <span className="label" key={l}>

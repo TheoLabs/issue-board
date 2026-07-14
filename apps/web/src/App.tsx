@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import type {
   Project,
   Plan,
@@ -8,6 +9,8 @@ import type {
   Design,
   IssueStatus,
   IssuePriority,
+  IssueType,
+  IssueLevel,
 } from '@issue-board/shared';
 import { ISSUE_STATUS, ISSUE_PRIORITY } from '@issue-board/shared';
 import { api } from './api/client';
@@ -20,24 +23,27 @@ import { IssueDrawer } from './components/IssueDrawer';
 import { WireframeViewer } from './components/WireframeViewer';
 import { DomainView } from './components/DomainView';
 import { DesignSystem } from './components/DesignSystem';
+import { Overview } from './components/Overview';
 import { Erd } from './components/Erd';
 import { PlanPanel } from './components/PlanPanel';
 
-type Tab = 'plans' | 'issues' | 'wireframes' | 'domains' | 'design';
+type Tab =
+  | 'overview'
+  | 'plans'
+  | 'issues'
+  | 'wireframes'
+  | 'domains'
+  | 'design';
 
-const TABS: Tab[] = ['plans', 'issues', 'wireframes', 'domains'];
+const TABS: Tab[] = [
+  'overview',
+  'plans',
+  'issues',
+  'wireframes',
+  'domains',
+  'design',
+];
 const TAB_STORAGE_KEY = 'issue-board:tab';
-
-/** 새로고침해도 탭이 유지되도록 localStorage에서 마지막 탭을 복원한다. */
-function loadInitialTab(): Tab {
-  try {
-    const saved = localStorage.getItem(TAB_STORAGE_KEY);
-    if (saved && (TABS as string[]).includes(saved)) return saved as Tab;
-  } catch {
-    // localStorage 접근 불가(시크릿 모드 등)면 기본값 사용
-  }
-  return 'issues';
-}
 
 /** 마크다운 body에서 index번째 체크리스트 항목의 [ ]↔[x]를 토글한 새 body를 반환 */
 function toggleChecklistLine(body: string, index: number): string {
@@ -66,19 +72,26 @@ export function App() {
   const [design, setDesign] = useState<Design | null>(null);
   const [activeDomainId, setActiveDomainId] = useState<string | null>(null);
   const [domainView, setDomainView] = useState<'table' | 'erd'>('table');
-  const [issueView, setIssueView] = useState<'kanban' | 'table'>('kanban');
-  const [tab, setTab] = useState<Tab>(loadInitialTab);
+  const [issueView, setIssueView] = useState<'kanban' | 'table'>('table');
+  // 라우팅: 탭·기획 상세는 URL 경로, 이슈 상세 드로어는 ?issue= 쿼리에서 파생
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const pathSegs = location.pathname.split('/').filter(Boolean);
+  const tab: Tab = (TABS as string[]).includes(pathSegs[0] ?? '')
+    ? (pathSegs[0] as Tab)
+    : 'overview';
+  const routePlanId = tab === 'plans' ? (pathSegs[1] ?? null) : null;
+  const selectedIssueId = searchParams.get('issue');
   // 이슈 기획 필터: null=전체, '__none__'=기획 없음, 그 외=planId
   const [filterPlanId, setFilterPlanId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<IssueStatus | ''>('');
   const [filterPriority, setFilterPriority] = useState<IssuePriority | ''>('');
+  const [filterType, setFilterType] = useState<IssueType | ''>('');
   const [issueQuery, setIssueQuery] = useState('');
   // 와이어프레임은 name으로 묶고, 선택된 이름 + 선택된 버전(id)으로 표시한다.
   const [activeName, setActiveName] = useState<string | null>(null);
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
-  // 이슈 상세 드로어 + 연동 상태
-  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
-  const [focusPlanId, setFocusPlanId] = useState<string | null>(null);
   const [gotoScreen, setGotoScreen] = useState<string | null>(null);
 
   useEffect(() => {
@@ -148,22 +161,64 @@ export function App() {
     ),
   );
 
-  // 드로어가 열려 있으면 issues 갱신 시 선택된 이슈도 최신으로 동기화
-  useEffect(() => {
-    if (!selectedIssue) return;
-    const fresh = issues.find((i) => i.id === selectedIssue.id);
-    if (fresh && fresh !== selectedIssue) setSelectedIssue(fresh);
-  }, [issues, selectedIssue]);
+  // 선택된 이슈는 URL(?issue=)에서 파생 → issues 갱신 시 자동으로 최신 반영됨
+  const selectedIssue = selectedIssueId
+    ? (issues.find((i) => i.id === selectedIssueId) ?? null)
+    : null;
 
-  const changeStatus = useCallback(
-    (issue: Issue, status: IssueStatus) => {
-      api.updateIssue(issue.id, { status }, issue.version).then((updated) => {
-        setIssues((cur) => cur.map((i) => (i.id === updated.id ? updated : i)));
-        // 이미 열려 있는 드로어만 동기화. 닫혀 있으면(예: DnD 이동) 열지 않는다.
-        setSelectedIssue((cur) =>
-          cur && cur.id === updated.id ? updated : cur,
-        );
-      });
+  // 내비게이션 헬퍼 (URL이 화면의 진실)
+  const goTab = (t: Tab) => navigate('/' + t);
+  const openIssue = (issue: Issue) => {
+    const sp = new URLSearchParams(location.search);
+    sp.set('issue', issue.id);
+    navigate({ pathname: location.pathname, search: sp.toString() });
+  };
+  const closeIssue = () => {
+    if (location.key !== 'default') navigate(-1);
+    else navigate(location.pathname, { replace: true });
+  };
+  const openPlan = (planId: string) => navigate('/plans/' + planId);
+  const closePlan = () => {
+    if (location.key !== 'default') navigate(-1);
+    else navigate('/plans');
+  };
+
+  // 마지막 탭 저장 + '/' 진입 시 복원
+  useEffect(() => {
+    if (location.pathname === '/') {
+      let saved = 'overview';
+      try {
+        const s = localStorage.getItem(TAB_STORAGE_KEY);
+        if (s && (TABS as string[]).includes(s)) saved = s;
+      } catch {
+        /* ignore */
+      }
+      navigate('/' + saved, { replace: true });
+    } else if ((TABS as string[]).includes(tab)) {
+      try {
+        localStorage.setItem(TAB_STORAGE_KEY, tab);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [location.pathname, navigate, tab]);
+
+  // selectedIssue는 issues에서 파생되므로 setIssues만 하면 드로어도 자동 갱신됨
+  const changeStatus = useCallback((issue: Issue, status: IssueStatus) => {
+    api.updateIssue(issue.id, { status }, issue.version).then((updated) => {
+      setIssues((cur) => cur.map((i) => (i.id === updated.id ? updated : i)));
+    });
+  }, []);
+
+  const changeLevel = useCallback(
+    (issue: Issue, field: 'value' | 'effort', level: IssueLevel) => {
+      api
+        .updateIssue(issue.id, { [field]: level }, issue.version)
+        .then((updated) => {
+          setIssues((cur) =>
+            cur.map((i) => (i.id === updated.id ? updated : i)),
+          );
+        });
     },
     [],
   );
@@ -173,15 +228,13 @@ export function App() {
     if (newBody === issue.body) return;
     api.updateIssue(issue.id, { body: newBody }, issue.version).then((updated) => {
       setIssues((cur) => cur.map((i) => (i.id === updated.id ? updated : i)));
-      setSelectedIssue(updated);
     });
   }, []);
 
-  const viewPlan = useCallback((planId: string) => {
-    setTab('plans');
-    setFocusPlanId(planId);
-    setSelectedIssue(null);
-  }, []);
+  const viewPlan = useCallback(
+    (planId: string) => navigate('/plans/' + planId),
+    [navigate],
+  );
 
   // 이슈의 screenId를 담고 있는 와이어프레임(이름별 최신 버전)을 찾아 그 화면으로 이동
   const viewScreen = useCallback(
@@ -201,11 +254,10 @@ export function App() {
         setActiveName(target.name);
         setActiveVersionId(target.id);
       }
-      setTab('wireframes');
       setGotoScreen(screenId);
-      setSelectedIssue(null);
+      navigate('/wireframes');
     },
-    [wireframes],
+    [wireframes, navigate],
   );
 
   const deleteWireframe = useCallback(
@@ -231,11 +283,13 @@ export function App() {
     [selectedId, loadProject],
   );
 
-  const viewDomain = useCallback((domainId: string) => {
-    setTab('domains');
-    setActiveDomainId(domainId);
-    setSelectedIssue(null);
-  }, []);
+  const viewDomain = useCallback(
+    (domainId: string) => {
+      setActiveDomainId(domainId);
+      navigate('/domains');
+    },
+    [navigate],
+  );
 
   const selected = projects.find((p) => p.id === selectedId) ?? null;
   const linkedPlan = selectedIssue?.planId
@@ -251,6 +305,7 @@ export function App() {
     } else if (filterPlanId && i.planId !== filterPlanId) {
       return false;
     }
+    if (filterType && i.type !== filterType) return false;
     if (filterStatus && i.status !== filterStatus) return false;
     if (filterPriority && i.priority !== filterPriority) return false;
     if (issueQ && !`${i.title} ${i.body}`.toLowerCase().includes(issueQ))
@@ -305,6 +360,7 @@ export function App() {
               <div className="tabs">
                 {(
                   [
+                    'overview',
                     'issues',
                     'plans',
                     'domains',
@@ -315,23 +371,38 @@ export function App() {
                   <button
                     key={t}
                     className={tab === t ? 'active' : ''}
-                    onClick={() => setTab(t)}
+                    onClick={() => goTab(t)}
                   >
-                    {t === 'issues'
-                      ? `이슈 (${issues.length})`
-                      : t === 'plans'
-                        ? `기획 (${plans.length})`
-                        : t === 'domains'
-                          ? `도메인 (${domains.length})`
-                          : t === 'wireframes'
-                            ? `와이어프레임 (${new Set(wireframes.map((w) => w.name)).size})`
-                            : '디자인 시스템'}
+                    {t === 'overview'
+                      ? '대시보드'
+                      : t === 'issues'
+                        ? `이슈 (${issues.length})`
+                        : t === 'plans'
+                          ? `기획 (${plans.length})`
+                          : t === 'domains'
+                            ? `도메인 (${domains.length})`
+                            : t === 'wireframes'
+                              ? `와이어프레임 (${new Set(wireframes.map((w) => w.name)).size})`
+                              : '디자인 시스템'}
                   </button>
                 ))}
               </div>
             </header>
 
             <section className="panel">
+              {tab === 'overview' && (
+                <Overview
+                  projectId={selectedId}
+                  plans={plans}
+                  issues={issues}
+                  domains={domains}
+                  wireframes={wireframes}
+                  design={design}
+                  onGoTab={goTab}
+                  onSelectIssue={openIssue}
+                />
+              )}
+
               {tab === 'issues' && (
                 <>
                   <div className="issue-controls">
@@ -411,8 +482,32 @@ export function App() {
                             ]}
                           />
                         </div>
+                        <div className="filter-field">
+                          <label>종류</label>
+                          <Select
+                            ariaLabel="종류 필터"
+                            value={filterType}
+                            onChange={(v) => setFilterType(v as IssueType | '')}
+                            options={[
+                              { value: '', label: '전체' },
+                              {
+                                value: 'epic',
+                                label: `에픽 (${
+                                  issues.filter((i) => i.type === 'epic').length
+                                })`,
+                              },
+                              {
+                                value: 'task',
+                                label: `일반 (${
+                                  issues.filter((i) => i.type === 'task').length
+                                })`,
+                              },
+                            ]}
+                          />
+                        </div>
                         {(filterStatus ||
                           filterPriority ||
+                          filterType ||
                           issueQ ||
                           filterPlanId) && (
                           <span className="muted-hint">
@@ -423,30 +518,30 @@ export function App() {
                     </div>
                     <div className="view-toggle">
                       <button
-                        className={issueView === 'kanban' ? 'active' : ''}
-                        onClick={() => setIssueView('kanban')}
-                      >
-                        칸반
-                      </button>
-                      <button
                         className={issueView === 'table' ? 'active' : ''}
                         onClick={() => setIssueView('table')}
                       >
                         테이블
+                      </button>
+                      <button
+                        className={issueView === 'kanban' ? 'active' : ''}
+                        onClick={() => setIssueView('kanban')}
+                      >
+                        칸반
                       </button>
                     </div>
                   </div>
                   {issueView === 'kanban' ? (
                     <IssueBoard
                       issues={filteredIssues}
-                      onSelect={setSelectedIssue}
+                      onSelect={openIssue}
                       onMove={changeStatus}
                       selectedId={selectedIssue?.id ?? null}
                     />
                   ) : (
                     <IssueTable
                       issues={filteredIssues}
-                      onSelect={setSelectedIssue}
+                      onSelect={openIssue}
                       onMove={changeStatus}
                       selectedId={selectedIssue?.id ?? null}
                     />
@@ -460,7 +555,9 @@ export function App() {
                 ) : (
                   <PlanPanel
                     plans={plans}
-                    focusPlanId={focusPlanId}
+                    openPlanId={routePlanId}
+                    onOpen={openPlan}
+                    onClose={closePlan}
                     onChanged={() => selectedId && loadProject(selectedId)}
                   />
                 ))}
@@ -614,8 +711,18 @@ export function App() {
           linkedPlan={linkedPlan}
           linkedDomain={linkedDomain}
           canViewScreen={screenAvailable}
-          onClose={() => setSelectedIssue(null)}
+          parentIssue={
+            selectedIssue.parentId
+              ? (issues.find((i) => i.id === selectedIssue.parentId) ?? null)
+              : null
+          }
+          childIssues={issues.filter((i) => i.parentId === selectedIssue.id)}
+          onSelectIssue={openIssue}
+          onClose={closeIssue}
           onStatusChange={(status) => changeStatus(selectedIssue, status)}
+          onLevelChange={(field, level) =>
+            changeLevel(selectedIssue, field, level)
+          }
           onViewPlan={() => selectedIssue.planId && viewPlan(selectedIssue.planId)}
           onViewDomain={() =>
             selectedIssue.domainId && viewDomain(selectedIssue.domainId)

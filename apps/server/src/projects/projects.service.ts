@@ -1,14 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateProjectDto, Project } from '@issue-board/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { EventsService } from '../events/events.service';
+import { ActivityService } from '../activity/activity.service';
 import { toProject } from '../common/mappers';
 
 @Injectable()
 export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly events: EventsService,
+    private readonly activity: ActivityService,
   ) {}
 
   async list(): Promise<Project[]> {
@@ -39,7 +39,13 @@ export class ProjectsService {
       },
     });
     const project = toProject(row);
-    this.events.emit({ type: 'project:updated', projectId: project.id });
+    await this.activity.record({
+      projectId: project.id,
+      entityType: 'project',
+      entityId: project.id,
+      action: 'created',
+      title: project.name,
+    });
     return project;
   }
 }

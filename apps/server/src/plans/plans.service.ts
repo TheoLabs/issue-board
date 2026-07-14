@@ -11,14 +11,14 @@ import type {
 } from '@issue-board/shared';
 import type { Plan as PrismaPlan } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { EventsService } from '../events/events.service';
+import { ActivityService } from '../activity/activity.service';
 import { toPlan, toPlanVersion } from '../common/mappers';
 
 @Injectable()
 export class PlansService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly events: EventsService,
+    private readonly activity: ActivityService,
   ) {}
 
   async listByProject(projectId: string): Promise<Plan[]> {
@@ -55,7 +55,13 @@ export class PlansService {
       },
     });
     const plan = toPlan(row);
-    this.events.emit({ type: 'plan:changed', projectId, entityId: plan.id });
+    await this.activity.record({
+      projectId,
+      entityType: 'plan',
+      entityId: plan.id,
+      action: 'created',
+      title: plan.title,
+    });
     return plan;
   }
 
@@ -91,10 +97,16 @@ export class PlansService {
     if (becameApproved) await this.snapshot(row, '승인');
 
     const plan = toPlan(row);
-    this.events.emit({
-      type: 'plan:changed',
+    const statusChanged = current.status !== row.status;
+    await this.activity.record({
       projectId: plan.projectId,
+      entityType: 'plan',
       entityId: plan.id,
+      action: statusChanged ? 'status_changed' : 'updated',
+      title: plan.title,
+      changes: statusChanged
+        ? { status: { from: current.status, to: row.status } }
+        : null,
     });
     return plan;
   }
@@ -104,10 +116,13 @@ export class PlansService {
     const row = await this.prisma.plan.findUnique({ where: { id: planId } });
     if (!row) throw new NotFoundException(`Plan ${planId} not found`);
     await this.snapshot(row, label);
-    this.events.emit({
-      type: 'plan:changed',
+    await this.activity.record({
       projectId: row.projectId,
+      entityType: 'plan',
       entityId: planId,
+      action: 'snapshot',
+      title: row.title,
+      changes: label ? { label: { from: null, to: label } } : null,
     });
     return toPlan(row);
   }
@@ -116,10 +131,12 @@ export class PlansService {
     const row = await this.prisma.plan.findUnique({ where: { id } });
     if (!row) throw new NotFoundException(`Plan ${id} not found`);
     await this.prisma.plan.delete({ where: { id } });
-    this.events.emit({
-      type: 'plan:changed',
+    await this.activity.record({
       projectId: row.projectId,
+      entityType: 'plan',
       entityId: id,
+      action: 'deleted',
+      title: row.title,
     });
   }
 
