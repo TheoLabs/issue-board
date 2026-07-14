@@ -393,6 +393,7 @@ export function App() {
               {tab === 'overview' && (
                 <Overview
                   projectId={selectedId}
+                  projectName={selected?.name ?? ''}
                   plans={plans}
                   issues={issues}
                   domains={domains}
