@@ -4,6 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Issue Board</title>
+    <script>
+      // 번들 로드 전에 테마를 확정해 첫 페인트 깜빡임(FOUC)을 막는다.
+      // 저장값 우선, 없으면 OS 설정을 따르고, 실패 시 다크로 폴백.
+      (function () {
+        try {
+          var saved = localStorage.getItem('issue-board:theme');
+          var theme =
+            saved === 'light' || saved === 'dark'
+              ? saved
+              : window.matchMedia &&
+                  window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark';
+          document.documentElement.dataset.theme = theme;
+        } catch (e) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -14,6 +14,7 @@ import type {
 } from '@issue-board/shared';
 import { ISSUE_STATUS, ISSUE_PRIORITY } from '@issue-board/shared';
 import { api } from './api/client';
+import { useTheme } from './theme';
 import { useBoardEvents } from './api/useBoardEvents';
 import { IssueBoard } from './components/IssueBoard';
 import { IssueTable } from './components/IssueTable';
@@ -66,6 +67,7 @@ function toggleChecklistLine(body: string, index: number): string {
 }
 
 export function App() {
+  const [theme, toggleTheme] = useTheme();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -368,6 +370,14 @@ export function App() {
             </p>
           )}
         </nav>
+        <button
+          className="theme-toggle"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+          aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+        >
+          {theme === 'dark' ? '☀️ 라이트 모드' : '🌙 다크 모드'}
+        </button>
       </aside>
 
       <main className="content">
@@ -696,7 +706,7 @@ export function App() {
                     </div>
 
                     {domainView === 'erd' ? (
-                      <Erd domains={domains} />
+                      <Erd domains={domains} theme={theme} />
                     ) : (
                       <div className="domain-layout">
                         <nav className="wireframe-nav">

@@ -1,12 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import mermaid from 'mermaid';
 import type { Domain } from '@issue-board/shared';
-
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'dark',
-  securityLevel: 'strict',
-});
+import type { Theme } from '../theme';
 
 /** mermaid 식별자로 안전하게 (영숫자/언더스코어) */
 function sanitize(s: string): string {
@@ -53,7 +48,13 @@ export function buildErd(domains: Domain[]): string {
   return [...lines, ...rels].join('\n');
 }
 
-export function Erd({ domains }: { domains: Domain[] }) {
+export function Erd({
+  domains,
+  theme = 'dark',
+}: {
+  domains: Domain[];
+  theme?: Theme;
+}) {
   const rawId = useId();
   const renderId = `erd-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   const [svg, setSvg] = useState('');
@@ -62,6 +63,12 @@ export function Erd({ domains }: { domains: Domain[] }) {
   useEffect(() => {
     let cancelled = false;
     const code = buildErd(domains);
+    // 페이지 테마에 맞춰 mermaid 다이어그램도 다시 렌더한다.
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: theme === 'light' ? 'neutral' : 'dark',
+      securityLevel: 'strict',
+    });
     mermaid
       .render(renderId, code)
       .then(({ svg }) => {
@@ -76,7 +83,7 @@ export function Erd({ domains }: { domains: Domain[] }) {
     return () => {
       cancelled = true;
     };
-  }, [domains, renderId]);
+  }, [domains, renderId, theme]);
 
   // PDF 내보내기: 밝은(neutral) 테마로 다시 렌더해 인쇄 창을 열고,
   // 브라우저 인쇄 대화상자에서 "PDF로 저장"을 선택하게 한다 (의존성 없음, 완전 로컬).
