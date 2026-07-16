@@ -106,6 +106,33 @@ body {
   background: var(--accent);
   color: #fff;
 }
+/* 프로젝트 하위 앱(전달 표면) 트리 */
+.nav-project {
+  display: flex;
+  flex-direction: column;
+}
+.nav-apps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 4px 12px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+.sidebar nav .nav-app {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 5px 10px;
+}
+.sidebar nav .nav-app:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.sidebar nav .nav-app.active {
+  background: var(--panel-2);
+  color: var(--accent);
+  font-weight: 600;
+}
 .hint,
 .placeholder,
 .empty {
@@ -402,6 +429,22 @@ code {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+/* 사람이 읽는 이슈 키 (예: CH-12) — 모노스페이스 식별자 배지 */
+.issue-key {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-right: 6px;
+  vertical-align: middle;
+  line-height: 1.4;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--muted) 24%, transparent);
 }
 .drawer-head-badges {
   display: flex;
@@ -822,6 +865,11 @@ code {
   font-size: 12px;
   color: var(--muted);
 }
+/* 승인 대기가 있을 때 강조 (관리자 승인 필요) */
+.ov-kpi-sub--warn {
+  color: var(--prio-medium);
+  font-weight: 600;
+}
 .ov-meter {
   height: 6px;
   border-radius: 999px;
@@ -888,6 +936,47 @@ code {
 .ov-legend-pct {
   font-size: 11px;
   opacity: 0.7;
+}
+/* 에픽 진행률 카드 헤더 (제목 + 우측 상단 페이지네이션) */
+.ov-epics-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.ov-epics-head .ov-card-title {
+  margin: 0;
+}
+.ov-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.ov-pager button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ov-pager button:hover:not(:disabled) {
+  background: var(--panel-2);
+  border-color: var(--accent);
+}
+.ov-pager button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 .ov-epics {
   display: flex;
@@ -2029,6 +2118,12 @@ code {
   stroke-width: 1;
 }
 .chart-bar {
+  fill: var(--prio-low);
+}
+.chart-bar--created {
+  fill: var(--accent);
+}
+.chart-bar--done {
   fill: var(--prio-low);
 }
 .chart-vallabel {

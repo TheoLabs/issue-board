@@ -1,3 +1,4 @@
+import './load-env'; // 다른 어떤 import보다 먼저 — .env를 process.env로 로드
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';

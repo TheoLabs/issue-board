@@ -6,6 +6,7 @@ import type {
   Wireframe as PrismaWireframe,
   Domain as PrismaDomain,
   Design as PrismaDesign,
+  Application as PrismaApplication,
 } from '@prisma/client';
 import type {
   Project,
@@ -18,6 +19,7 @@ import type {
   DomainLifecycle,
   Design,
   DesignTokens,
+  Application,
   IssueStatus,
   IssueType,
   IssuePriority,
@@ -28,6 +30,20 @@ import type {
 } from '@issue-board/shared';
 
 const iso = (d: Date): string => d.toISOString();
+
+export function toApplication(row: PrismaApplication): Application {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    key: row.key,
+    name: row.name,
+    description: row.description,
+    sequence: row.sequence,
+    issuePrefix: row.issuePrefix,
+    createdAt: iso(row.createdAt),
+    updatedAt: iso(row.updatedAt),
+  };
+}
 
 export function toDesign(row: PrismaDesign): Design {
   let tokens: DesignTokens;
@@ -65,6 +81,7 @@ export function toPlan(row: PrismaPlan): Plan {
     content: row.content,
     status: row.status as PlanStatus,
     version: row.version,
+    applicationId: row.applicationId,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
   };
@@ -99,6 +116,9 @@ export function toIssue(row: PrismaIssue): Issue {
     planId: row.planId,
     screenId: row.screenId,
     domainId: row.domainId,
+    applicationId: row.applicationId,
+    number: row.number,
+    key: row.key,
     version: row.version,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
@@ -128,6 +148,7 @@ export function toWireframe(row: PrismaWireframe): Wireframe {
     content: row.content,
     sequence: row.sequence,
     version: row.version,
+    applicationId: row.applicationId,
     createdAt: iso(row.createdAt),
   };
 }

@@ -5,6 +5,7 @@ import type {
   ActivityEntity,
   ActivitySource,
   BoardEventType,
+  DailyActivityPoint,
   DailyCount,
   DailySummary,
   FieldChange,
@@ -111,17 +112,25 @@ export class ActivityService {
     projectId: string,
     weeks = 12,
     timezone: string = DEFAULT_TZ,
+    applicationId?: string,
   ): Promise<WeeklyActivityPoint[]> {
     const [issues, acts] = await Promise.all([
       this.prisma.issue.findMany({
-        where: { projectId },
-        select: { createdAt: true },
+        // applicationId 지정 시 그 앱 이슈만 (미지정이면 프로젝트 전체)
+        where: applicationId ? { projectId, applicationId } : { projectId },
+        select: { id: true, createdAt: true },
       }),
       this.prisma.activityLog.findMany({
         where: { projectId, entityType: 'issue', action: 'status_changed' },
-        select: { createdAt: true, changes: true },
+        select: { createdAt: true, changes: true, entityId: true },
       }),
     ]);
+
+    // 활동로그엔 applicationId가 없으므로, done 이벤트는 현재 그 앱에 속한
+    // 이슈 id 집합으로 거른다(앱 미지정이면 필터 없음).
+    const appIssueIds = applicationId
+      ? new Set(issues.map((i) => i.id))
+      : null;
 
     const createdByWeek = new Map<string, number>();
     for (const i of issues) {
@@ -130,6 +139,7 @@ export class ActivityService {
     }
     const doneByWeek = new Map<string, number>();
     for (const a of acts) {
+      if (appIssueIds && !appIssueIds.has(a.entityId)) continue;
       if (!a.changes) continue;
       let to: string | undefined;
       try {
@@ -153,6 +163,64 @@ export class ActivityService {
       weekStart: w,
       created: createdByWeek.get(w) ?? 0,
       done: doneByWeek.get(w) ?? 0,
+    }));
+  }
+
+  /**
+   * 일별 이슈 추이 (생성 vs 완료) — 최근 days일. 대시보드 "작업 현황" 차트용.
+   * created=issue.createdAt, done=status_changed→done. applicationId 지정 시 그 앱만.
+   */
+  async dailyTrend(
+    projectId: string,
+    days = 7,
+    timezone: string = DEFAULT_TZ,
+    applicationId?: string,
+  ): Promise<DailyActivityPoint[]> {
+    const [issues, acts] = await Promise.all([
+      this.prisma.issue.findMany({
+        where: applicationId ? { projectId, applicationId } : { projectId },
+        select: { id: true, createdAt: true },
+      }),
+      this.prisma.activityLog.findMany({
+        where: { projectId, entityType: 'issue', action: 'status_changed' },
+        select: { createdAt: true, changes: true, entityId: true },
+      }),
+    ]);
+
+    // done 이벤트엔 applicationId가 없어 그 앱 이슈 id 집합으로 귀속(앱 미지정이면 필터 없음)
+    const appIssueIds = applicationId
+      ? new Set(issues.map((i) => i.id))
+      : null;
+
+    const dayList = dayRange(zonedDateStr(new Date(), timezone), days);
+    const daySet = new Set(dayList);
+
+    const createdByDay = new Map<string, number>();
+    for (const i of issues) {
+      const d = zonedDateStr(i.createdAt, timezone);
+      if (daySet.has(d)) createdByDay.set(d, (createdByDay.get(d) ?? 0) + 1);
+    }
+    const doneByDay = new Map<string, number>();
+    for (const a of acts) {
+      if (appIssueIds && !appIssueIds.has(a.entityId)) continue;
+      if (!a.changes) continue;
+      let to: string | undefined;
+      try {
+        to = (JSON.parse(a.changes) as Record<string, FieldChange>)?.status
+          ?.to as string | undefined;
+      } catch {
+        to = undefined;
+      }
+      if (to === 'done') {
+        const d = zonedDateStr(a.createdAt, timezone);
+        if (daySet.has(d)) doneByDay.set(d, (doneByDay.get(d) ?? 0) + 1);
+      }
+    }
+
+    return dayList.map((d) => ({
+      date: d,
+      created: createdByDay.get(d) ?? 0,
+      done: doneByDay.get(d) ?? 0,
     }));
   }
 
@@ -264,6 +332,17 @@ function mondayOf(dateStr: string): string {
 }
 
 /** 월요일 startMon ~ endMon(포함)까지 7일 간격 월요일 목록(오름차순) */
+/** endDate(YYYY-MM-DD, tz기준 오늘)에서 끝나는 최근 days일의 날짜 배열(오름차순). */
+function dayRange(endDate: string, days: number): string[] {
+  const [y, m, d] = endDate.split('-').map(Number);
+  const end = Date.UTC(y, m - 1, d);
+  const out: string[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    out.push(new Date(end - i * 86_400_000).toISOString().slice(0, 10));
+  }
+  return out;
+}
+
 function weekRange(startMon: string, endMon: string): string[] {
   const [y, m, d] = startMon.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));

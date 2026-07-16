@@ -65,28 +65,35 @@ pnpm dev:web
 }
 ```
 
-그 디렉토리에서 Claude Code를 실행한 뒤, 슬래시 커맨드로 단계별 생성을 돌린다
+그 디렉토리에서 Claude Code를 실행한 뒤, 슬래시 **스킬**로 단계별 생성을 돌린다
 (오케스트레이터 `/ib-generate` 하나로 순차 실행하거나, 단계별 `/ib-plan`·`/ib-wireframe`·
 `/ib-domain`·`/ib-issues`, 그리고 `/ib-design <메인색>`으로 디자인 시스템 생성).
-커맨드 자산은 [`agent/`](agent/README.md) 참고.
+스킬 자산·설치법은 [`agent/`](agent/README.md) 참고.
 
 Claude가 MCP 툴을 순차 호출한다:
-`create_project(repoPath=cwd)` → `create_plan` → `create_wireframe` × N →
-`create_domain` × N → `create_issue` × N (에픽 먼저 → 태스크).
+`create_project(repoPath=cwd)` → `create_application`(전달 표면·이슈 키 접두사 확보) →
+`create_plan` → `create_wireframe` × N → `create_domain` × N → `create_issue` × N
+(에픽 먼저 → 태스크). **이슈는 앱 접두사 + 순번으로 사람이 읽는 키**(예: `CH-12`)를 받는다.
 
 이후 다른 세션(다른 프로젝트 작업 중)도 같은 MCP로 붙어 `get_project_context(cwd)`로
-컨텍스트를 읽고 `update_issue_status`로 진행 상황을 갱신한다. 변경은 SSE로 대시보드에
-실시간 반영된다.
+컨텍스트를 읽고 `update_issue_status(CH-12, ...)`로 진행 상황을 갱신한다 (키 대신 cuid도
+가능). 변경은 SSE로 대시보드에 실시간 반영된다.
 
 ### MCP 툴 목록
 
 | 툴 | 방향 | 용도 |
 |----|------|------|
-| `list_projects` · `get_project_context` | read | 프로젝트 목록 / cwd 매칭 컨텍스트(기획·이슈·도메인·와이어프레임·디자인) |
-| `get_plan` · `list_issues` · `get_issue` · `list_wireframes` · `get_wireframe` · `list_domains` · `get_domain` · `get_design` · `get_daily_activity` | read | 개별 산출물·활동 조회 |
-| `create_project` · `create_plan` · `create_wireframe` · `create_domain` · `create_issue` · `create_design` | write | 생성 (도메인·디자인은 upsert) |
+| `list_projects` · `get_project_context` | read | 프로젝트 목록 / cwd 매칭 컨텍스트(앱·기획·이슈·도메인·와이어프레임·디자인) |
+| `get_plan` · `list_issues` · `get_issue` · `list_wireframes` · `get_wireframe` · `list_domains` · `get_domain` · `get_design` · `get_daily_activity` | read | 개별 산출물·활동 조회 (이슈는 `key` 포함) |
+| `create_project` · `create_application` · `create_plan` · `create_wireframe` · `create_domain` · `create_issue` · `create_design` | write | 생성 (앱·도메인·디자인은 upsert) |
 | `update_issue` · `update_issue_status` · `link_issue` · `update_plan` · `append_plan_note` · `snapshot_plan` | write | 갱신 · 연동 · 스냅샷 |
 | `delete_issue` · `delete_domain` · `delete_wireframe` | write | 삭제 (명시 요청 시에만) |
+
+> **애플리케이션과 이슈 키**: 한 프로젝트는 여러 앱(전달 표면)으로 나뉜다. `create_application`에
+> **이슈 키 접두사**(예: `CH`)를 주면, 그 앱의 이슈는 앱별 순번으로 `CH-12` 같은 키를 받는다.
+> 모든 이슈는 앱 하나에 속한다(생략 시 서버가 기본 앱에 배정). 이슈를 다루는 툴(`get_issue`·
+> `update_issue`·`update_issue_status`·`link_issue`)은 **키 또는 cuid** 어느 쪽으로도 이슈를 지칭한다.
+> 도메인(데이터 모델)은 앱들이 공유하므로 앱에 묶지 않는다.
 
 ## 일일 업무 · 요약 → 구글 드라이브
 
@@ -97,7 +104,7 @@ Claude가 MCP 툴을 순차 호출한다:
 - **[보고서 보기]** — 그날 전체 보고서(팀 공유용 마크다운)를 생성·미리보기하고 **복사·`.md` 다운로드**.
 - **[드라이브 업로드]** — 보고서를 구글 드라이브에 **Google Docs 문서**로 올린다.
 
-보고서 양식은 [`ib-daily`](agent/commands/ib-daily.md) 템플릿을 따르는 섹션형
+보고서 양식은 [`daily-report`](agent/skills/ib-shared/daily-report.md) 명세를 따르는 섹션형
 (요약 → 완료 → 진행 중 → 신규 등록 → 산출물 변경 → 내일 이어서 → 정리).
 
 - 폴더 구조: `이슈보드 일일요약 / {프로젝트명} / {날짜} {프로젝트명} 일일요약`

@@ -1,5 +1,6 @@
 import type {
   Project,
+  Application,
   Plan,
   PlanVersion,
   Issue,
@@ -10,6 +11,7 @@ import type {
   DailyReport,
   DailyCount,
   WeeklyActivityPoint,
+  DailyActivityPoint,
   UpdateIssueDto,
   UpdatePlanDto,
 } from '@issue-board/shared';
@@ -33,6 +35,9 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   listProjects: () => req<Project[]>('/projects'),
   getProject: (id: string) => req<Project>(`/projects/${id}`),
+
+  listApplications: (projectId: string) =>
+    req<Application[]>(`/projects/${projectId}/applications`),
 
   listPlans: (projectId: string) =>
     req<Plan[]>(`/projects/${projectId}/plans`),
@@ -103,8 +108,20 @@ export const api = {
     ),
 
   /** 주간 이슈 추이(생성 vs 완료). 번다운·속도 차트용. */
-  getActivityTrend: (projectId: string, weeks = 12) =>
+  getActivityTrend: (projectId: string, weeks = 12, applicationId?: string) =>
     req<WeeklyActivityPoint[]>(
-      `/projects/${projectId}/activity/trend?weeks=${weeks}`,
+      `/projects/${projectId}/activity/trend?weeks=${weeks}${
+        applicationId ? `&applicationId=${applicationId}` : ''
+      }`,
+    ),
+  getActivityDailyTrend: (
+    projectId: string,
+    days = 7,
+    applicationId?: string,
+  ) =>
+    req<DailyActivityPoint[]>(
+      `/projects/${projectId}/activity/trend/daily?days=${days}${
+        applicationId ? `&applicationId=${applicationId}` : ''
+      }`,
     ),
 };

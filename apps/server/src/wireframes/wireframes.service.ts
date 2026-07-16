@@ -36,7 +36,7 @@ export class WireframesService {
     const latest = await this.prisma.wireframe.findFirst({
       where: { projectId, name: dto.name },
       orderBy: { version: 'desc' },
-      select: { version: true, sequence: true },
+      select: { version: true, sequence: true, applicationId: true },
     });
     const version = latest ? latest.version + 1 : 1;
 
@@ -62,6 +62,8 @@ export class WireframesService {
         content: dto.content,
         sequence,
         version,
+        // 명시값 우선 → 같은 name 재생성 시 이전 앱 상속 → 미분류(null)
+        applicationId: dto.applicationId ?? latest?.applicationId ?? null,
       },
     });
     const wireframe = toWireframe(row);

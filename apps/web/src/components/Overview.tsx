@@ -86,6 +86,7 @@ export function Overview({
   domains,
   wireframes,
   design,
+  applicationId,
   onGoTab,
   onSelectIssue,
 }: {
@@ -95,6 +96,8 @@ export function Overview({
   domains: Domain[];
   wireframes: Wireframe[];
   design: Design | null;
+  /** 선택된 앱(전달 표면). null이면 프로젝트 전체 기준 */
+  applicationId?: string | null;
   onGoTab: (
     tab: 'issues' | 'plans' | 'domains' | 'wireframes' | 'design' | 'daily',
   ) => void;
@@ -104,6 +107,7 @@ export function Overview({
   const [todayReport, setTodayReport] = useState<
     DailyReport | null | undefined
   >(undefined);
+  const [epicPage, setEpicPage] = useState(0);
   useEffect(() => {
     if (!projectId) {
       setTodayReport(null);
@@ -126,6 +130,9 @@ export function Overview({
   const epics = issues.filter((i) => i.type === 'epic');
   const tasks = total - epics.length;
   const wfCount = new Set(wireframes.map((w) => w.name)).size;
+  // 승인 대기 = 아직 승인되지 않은 초안(draft). 관리자 승인 후 작업 진행 대상.
+  const plansPending = plans.filter((p) => p.status === 'draft').length;
+  const domainsPending = domains.filter((d) => d.status === 'draft').length;
 
   const statusItems = STATUS_META.map((m) => ({
     label: m.label,
@@ -149,6 +156,19 @@ export function Overview({
       const pb = b.total ? b.done / b.total : 0;
       return pb - pa;
     });
+
+  // 에픽 진행률: 페이지당 6개 페이지네이션
+  const EPICS_PER_PAGE = 6;
+  const epicPageCount = Math.max(1, Math.ceil(epicRows.length / EPICS_PER_PAGE));
+  const safeEpicPage = Math.min(epicPage, epicPageCount - 1);
+  const epicPageRows = epicRows.slice(
+    safeEpicPage * EPICS_PER_PAGE,
+    safeEpicPage * EPICS_PER_PAGE + EPICS_PER_PAGE,
+  );
+  // 앱 전환 등으로 목록이 바뀌면 첫 페이지로
+  useEffect(() => {
+    setEpicPage(0);
+  }, [applicationId]);
 
   const reportReady =
     !!todayReport && todayReport.status === 'ready' && !!todayReport.content;
@@ -205,10 +225,20 @@ export function Overview({
         <button className="ov-kpi ov-kpi--btn" onClick={() => onGoTab('plans')}>
           <div className="ov-kpi-label">기획</div>
           <div className="ov-kpi-value">{plans.length}</div>
+          <div
+            className={`ov-kpi-sub${plansPending > 0 ? ' ov-kpi-sub--warn' : ''}`}
+          >
+            {plansPending > 0 ? `승인 대기 ${plansPending}` : '전체 승인됨'}
+          </div>
         </button>
         <button className="ov-kpi ov-kpi--btn" onClick={() => onGoTab('domains')}>
           <div className="ov-kpi-label">도메인</div>
           <div className="ov-kpi-value">{domains.length}</div>
+          <div
+            className={`ov-kpi-sub${domainsPending > 0 ? ' ov-kpi-sub--warn' : ''}`}
+          >
+            {domainsPending > 0 ? `승인 대기 ${domainsPending}` : '전체 승인됨'}
+          </div>
         </button>
         <button
           className="ov-kpi ov-kpi--btn"
@@ -238,14 +268,45 @@ export function Overview({
       </div>
 
       {/* 진행 분석 (가치×노력 매트릭스 + 시계열) */}
-      {projectId && <Analytics projectId={projectId} issues={issues} />}
+      {projectId && (
+        <Analytics
+          projectId={projectId}
+          issues={issues}
+          applicationId={applicationId}
+        />
+      )}
 
       {/* 에픽 진행률 */}
       {epicRows.length > 0 && (
         <section className="ov-card">
-          <h3 className="ov-card-title">에픽 진행률</h3>
+          <div className="ov-epics-head">
+            <h3 className="ov-card-title">에픽 진행률</h3>
+            {epicPageCount > 1 && (
+              <div className="ov-pager">
+                <button
+                  onClick={() => setEpicPage((p) => Math.max(0, p - 1))}
+                  disabled={safeEpicPage === 0}
+                  aria-label="이전 페이지"
+                >
+                  ‹
+                </button>
+                <span>
+                  {safeEpicPage + 1}/{epicPageCount}
+                </span>
+                <button
+                  onClick={() =>
+                    setEpicPage((p) => Math.min(epicPageCount - 1, p + 1))
+                  }
+                  disabled={safeEpicPage >= epicPageCount - 1}
+                  aria-label="다음 페이지"
+                >
+                  ›
+                </button>
+              </div>
+            )}
+          </div>
           <div className="ov-epics">
-            {epicRows.map(({ epic, total: t, done }) => {
+            {epicPageRows.map(({ epic, total: t, done }) => {
               const p = t ? Math.round((done / t) * 100) : 0;
               return (
                 <button

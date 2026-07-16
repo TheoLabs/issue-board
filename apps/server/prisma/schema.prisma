@@ -19,13 +19,43 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  plans      Plan[]
-  issues     Issue[]
-  wireframes Wireframe[]
-  domains    Domain[]
-  design     Design?
-  activities ActivityLog[]
+  plans        Plan[]
+  issues       Issue[]
+  wireframes   Wireframe[]
+  domains      Domain[]
+  applications Application[]
+  design       Design?
+  activities   ActivityLog[]
   dailySummaries DailySummary[]
+}
+
+// 한 프로젝트 안의 개별 애플리케이션(전달 표면). 예: 추노앱, 백오피스.
+// 기획·와이어프레임·이슈를 앱 단위로 묶어 대시보드 앱 스위처로 전환한다.
+// 도메인(데이터 모델)은 앱들이 공유하므로 프로젝트에 그대로 둔다(applicationId 없음).
+model Application {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // 안정적 식별 키 (kebab-case, 예: chuno-app, backoffice). 프로젝트 내 유일.
+  key         String
+  name        String
+  description String?
+  // 앱 스위처 표시 순서. 낮을수록 앞.
+  sequence    Int      @default(0)
+  // 이슈 키 접두사 (대문자, 예: CH). 프로젝트 내 유일. 이슈 키 = "<issuePrefix>-<number>".
+  issuePrefix String?
+  // 앱별 이슈 번호 카운터 (마지막으로 발급한 number). create_issue가 트랜잭션으로 원자 증가.
+  issueSeq    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  plans      Plan[]
+  wireframes Wireframe[]
+  issues     Issue[]
+
+  @@unique([projectId, key])
+  @@unique([projectId, issuePrefix])
+  @@index([projectId])
 }
 
 // 이슈보드 변경 이력(감사 로그). REST/MCP 어느 경로의 write든 Service 계층에서 한 행씩 기록.
@@ -100,6 +130,9 @@ model Plan {
   content   String
   status    String   @default("draft") // draft | approved | archived
   version   Int      @default(1) // 낙관적 잠금 + 현재 버전 번호
+  // 소속 애플리케이션(전달 표면). 미분류는 null.
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -107,6 +140,7 @@ model Plan {
   versions PlanVersion[]
 
   @@index([projectId])
+  @@index([applicationId])
 }
 
 // 기획 변경 이력 스냅샷 (버전 관리). 모든 create/update마다 한 행씩 쌓인다.
@@ -150,14 +184,24 @@ model Issue {
   screenId  String?
   domainId  String?
   domain    Domain?  @relation(fields: [domainId], references: [id], onDelete: SetNull)
+  // 소속 애플리케이션(전달 표면). 미분류는 null.
+  // 소프트 필수: create 시 서비스가 항상 앱(지정 또는 프로젝트 기본 앱)을 배정한다.
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  // 사람이 읽는 이슈 키. 소속 앱의 issuePrefix + 앱별 순번(number) → 예 "CH-12". 부여 후 불변.
+  number    Int?
+  key       String?
   version   Int      @default(1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([applicationId, number])
+  @@unique([projectId, key])
   @@index([projectId])
   @@index([parentId])
   @@index([planId])
   @@index([domainId])
+  @@index([applicationId])
 }
 
 model Domain {
@@ -194,8 +238,12 @@ model Wireframe {
   sequence  Int      @default(0)
   // 같은 name의 재생성마다 증가. 삭제 대신 이력으로 보존한다.
   version   Int      @default(1)
+  // 소속 애플리케이션(전달 표면). 미분류는 null.
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 
   @@index([projectId])
   @@index([projectId, name])
+  @@index([applicationId])
 }

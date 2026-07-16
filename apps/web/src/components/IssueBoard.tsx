@@ -81,6 +81,7 @@ export function IssueBoard({
                 tabIndex={0}
               >
                 <span className="issue-title">
+                  {issue.key && <span className="issue-key">{issue.key}</span>}
                   <span className={`type-chip type-chip-${issue.type}`}>
                     {issue.type === 'epic' ? '에픽' : '일반'}
                   </span>

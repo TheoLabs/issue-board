@@ -20,6 +20,7 @@ import {
   type PlanStatus,
 } from '@issue-board/shared';
 import { ProjectsService } from '../projects/projects.service';
+import { ApplicationsService } from '../applications/applications.service';
 import { PlansService } from '../plans/plans.service';
 import { IssuesService } from '../issues/issues.service';
 import { WireframesService } from '../wireframes/wireframes.service';
@@ -52,6 +53,7 @@ const json = (data: unknown): ToolResult => ({
 export class McpService {
   constructor(
     private readonly projects: ProjectsService,
+    private readonly applications: ApplicationsService,
     private readonly plans: PlansService,
     private readonly issues: IssuesService,
     private readonly wireframes: WireframesService,
@@ -91,8 +93,17 @@ export class McpService {
 
     this.tool(
       server,
+      'list_applications',
+      '프로젝트의 애플리케이션(전달 표면) 목록을 반환한다. 한 프로젝트가 추노앱·백오피스처럼 여러 앱으로 나뉠 때 각 앱의 id·key·name·순서를 준다.',
+      { projectId: z.string() },
+      async (args) =>
+        json(await this.applications.listByProject(args.projectId as string)),
+    );
+
+    this.tool(
+      server,
       'get_project_context',
-      '로컬 경로(cwd)로 프로젝트를 매칭해 기획·이슈·와이어프레임 요약을 반환한다. 다른 세션에서 프로젝트를 이어받을 때 사용.',
+      '로컬 경로(cwd)로 프로젝트를 매칭해 애플리케이션·기획·이슈·와이어프레임 요약을 반환한다. 다른 세션에서 프로젝트를 이어받을 때 사용. 한 프로젝트에 여러 앱(전달 표면)이 있으면 applications로 구분되며, 기획·이슈·와이어프레임의 applicationId가 소속 앱을 가리킨다(도메인은 앱 공유).',
       { repoPath: z.string().describe('프로젝트 로컬 절대 경로 (cwd)') },
       async (args) => {
         const repoPath = args.repoPath as string;
@@ -103,16 +114,19 @@ export class McpService {
             message: `repoPath=${repoPath} 로 등록된 프로젝트가 없습니다. create_project로 먼저 등록하세요.`,
           });
         }
-        const [plans, issues, wireframes, domains, design] = await Promise.all([
-          this.plans.listByProject(project.id),
-          this.issues.listByProject(project.id),
-          this.wireframes.listByProject(project.id),
-          this.domains.listByProject(project.id),
-          this.designs.getByProject(project.id),
-        ]);
+        const [applications, plans, issues, wireframes, domains, design] =
+          await Promise.all([
+            this.applications.listByProject(project.id),
+            this.plans.listByProject(project.id),
+            this.issues.listByProject(project.id),
+            this.wireframes.listByProject(project.id),
+            this.domains.listByProject(project.id),
+            this.designs.getByProject(project.id),
+          ]);
         return json({
           matched: true,
           project,
+          applications,
           plans,
           issues,
           wireframes,
@@ -142,8 +156,12 @@ export class McpService {
     this.tool(
       server,
       'get_issue',
-      '특정 이슈 하나를 반환한다 (본문·상태·연동 정보 포함).',
-      { issueId: z.string() },
+      '특정 이슈 하나를 반환한다 (본문·상태·연동 정보 포함). 응답에는 사람이 읽는 키(key, 예: CH-12)가 포함된다.',
+      {
+        issueId: z
+          .string()
+          .describe('이슈 id(cuid) 또는 사람 키(예: CH-12) 둘 다 가능'),
+      },
       async (args) => json(await this.issues.get(args.issueId as string)),
     );
 
@@ -241,18 +259,58 @@ export class McpService {
 
     this.tool(
       server,
+      'create_application',
+      '프로젝트 안에 애플리케이션(전달 표면)을 만든다. key 기준 upsert — 같은 key로 다시 호출하면 갱신. 한 프로젝트에 여러 앱(예: 추노앱=chuno-app, 백오피스=backoffice)이 있을 때 기획·와이어프레임·이슈를 이 앱으로 묶는다. 반환된 id를 create_plan/create_wireframe/create_issue의 applicationId로 넘겨라. 도메인(데이터 모델)은 앱이 공유하므로 앱에 묶지 않는다.',
+      {
+        projectId: z.string(),
+        key: z
+          .string()
+          .describe('안정적 식별 키 (kebab-case, 예: chuno-app, backoffice)'),
+        name: z.string().describe('표시 이름 (예: 추노앱, 백오피스)'),
+        description: z.string().optional(),
+        sequence: z
+          .number()
+          .int()
+          .optional()
+          .describe('앱 스위처 표시 순서(낮을수록 앞). 생략 시 맨 뒤.'),
+        issuePrefix: z
+          .string()
+          .optional()
+          .describe(
+            '이슈 키 접두사 (대문자 2~4자, 예: CH). 프로젝트 내 유일. 이 앱의 이슈는 "<접두사>-<번호>"(예: CH-12) 키를 받는다. 새 앱이면 사용자에게 어떤 접두사를 쓸지 물어서 넘겨라. 생략 시 이름에서 도출.',
+          ),
+      },
+      async (args) =>
+        json(
+          await this.applications.upsert(args.projectId as string, {
+            key: args.key as string,
+            name: args.name as string,
+            description: args.description as string | undefined,
+            sequence: args.sequence as number | undefined,
+            issuePrefix: args.issuePrefix as string | undefined,
+          }),
+        ),
+    );
+
+    this.tool(
+      server,
       'create_plan',
-      '기획서(마크다운)를 프로젝트에 적재한다.',
+      '기획서(마크다운)를 프로젝트에 적재한다. 프로젝트에 여러 앱이 있으면 applicationId로 소속 앱을 지정한다.',
       {
         projectId: z.string(),
         title: z.string(),
         content: z.string().describe('마크다운 기획서 본문'),
+        applicationId: z
+          .string()
+          .optional()
+          .describe('소속 애플리케이션 id (create_application 반환값). 단일 앱이면 생략 가능.'),
       },
       async (args) =>
         json(
           await this.plans.create(args.projectId as string, {
             title: args.title as string,
             content: args.content as string,
+            applicationId: args.applicationId as string | undefined,
           }),
         ),
     );
@@ -273,6 +331,12 @@ export class McpService {
           .describe(
             'IA 순서(낮을수록 위, 0부터). 생략 시 같은 name의 기존 순서를 잇고, 신규면 맨 뒤.',
           ),
+        applicationId: z
+          .string()
+          .optional()
+          .describe(
+            '소속 애플리케이션 id. 여러 앱이 있으면 화면이 어느 앱인지 지정한다. 같은 name 재생성 시 생략하면 이전 앱을 상속.',
+          ),
       },
       async (args) =>
         json(
@@ -281,6 +345,7 @@ export class McpService {
             content: args.content as string,
             format: args.format as WireframeFormat | undefined,
             sequence: args.sequence as number | undefined,
+            applicationId: args.applicationId as string | undefined,
           }),
         ),
     );
@@ -447,13 +512,20 @@ export class McpService {
           .describe('노력 low/medium/high'),
         priority: z.enum(ISSUE_PRIORITY).optional(),
         labels: z.array(z.string()).optional(),
-        parentId: z.string().optional(),
+        parentId: z
+          .string()
+          .optional()
+          .describe('부모 에픽의 id(cuid) 또는 사람 키(예: CH-1)'),
         planId: z.string().optional().describe('파생된 기획의 id'),
         screenId: z
           .string()
           .optional()
           .describe('관련 화면 — 클릭스루 프로토타입의 data-screen 값'),
         domainId: z.string().optional().describe('관련 도메인의 id'),
+        applicationId: z
+          .string()
+          .optional()
+          .describe('소속 애플리케이션 id. 보통 연동한 기획(planId)의 앱과 같다.'),
       },
       async (args) =>
         json(
@@ -469,6 +541,7 @@ export class McpService {
             planId: args.planId as string | undefined,
             screenId: args.screenId as string | undefined,
             domainId: args.domainId as string | undefined,
+            applicationId: args.applicationId as string | undefined,
           }),
         ),
     );
@@ -477,7 +550,12 @@ export class McpService {
       server,
       'update_issue_status',
       '이슈 상태를 전이한다 (todo→in_progress→done 등). 코딩 진행에 따라 호출.',
-      { issueId: z.string(), status: z.enum(ISSUE_STATUS) },
+      {
+        issueId: z
+          .string()
+          .describe('이슈 id(cuid) 또는 사람 키(예: CH-12) 둘 다 가능'),
+        status: z.enum(ISSUE_STATUS),
+      },
       async (args) =>
         json(
           await this.issues.update(args.issueId as string, {

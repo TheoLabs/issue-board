@@ -58,6 +58,25 @@ export interface Project {
   updatedAt: string;
 }
 
+/**
+ * 한 프로젝트 안의 개별 애플리케이션(전달 표면). 예: 추노앱, 백오피스.
+ * 기획·와이어프레임·이슈를 앱 단위로 묶는다. 도메인(데이터 모델)은 앱들이 공유한다.
+ */
+export interface Application {
+  id: string;
+  projectId: string;
+  /** 안정적 식별 키 (kebab-case, 예: chuno-app, backoffice). 프로젝트 내 유일 */
+  key: string;
+  name: string;
+  description: string | null;
+  /** 앱 스위처 표시 순서. 낮을수록 앞 */
+  sequence: number;
+  /** 이슈 키 접두사 (대문자, 예: CH). 프로젝트 내 유일. 이슈 키 = `${issuePrefix}-${number}` */
+  issuePrefix: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Plan {
   id: string;
   projectId: string;
@@ -67,6 +86,8 @@ export interface Plan {
   status: PlanStatus;
   /** 낙관적 잠금용 버전 */
   version: number;
+  /** 소속 애플리케이션. 미분류는 null */
+  applicationId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -106,6 +127,12 @@ export interface Issue {
   screenId: string | null;
   /** 관련 도메인 (연동) */
   domainId: string | null;
+  /** 소속 애플리케이션. 소프트 필수 — 생성 시 서버가 앱(지정 또는 기본 앱)을 배정한다 */
+  applicationId: string | null;
+  /** 앱 내 순번 (1부터). 앱 배정 시 채번 */
+  number: number | null;
+  /** 사람이 읽는 이슈 키 (예: CH-12). 앱 issuePrefix + number. 부여 후 불변 */
+  key: string | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -234,6 +261,8 @@ export interface Wireframe {
   /** IA(정보구조) 순서. 대시보드 왼쪽 네비가 오름차순 정렬한다. 낮을수록 위 */
   sequence: number;
   version: number;
+  /** 소속 애플리케이션. 미분류는 null */
+  applicationId: string | null;
   createdAt: string;
 }
 
@@ -245,16 +274,28 @@ export interface CreateProjectDto {
   repoPath?: string;
 }
 
+/** 애플리케이션 생성/갱신 (프로젝트 내 key 기준 upsert) */
+export interface UpsertApplicationDto {
+  key: string;
+  name: string;
+  description?: string;
+  sequence?: number;
+  /** 이슈 키 접두사 (대문자 2~4자, 프로젝트 내 유일). 생략 시 서버가 이름에서 도출 */
+  issuePrefix?: string;
+}
+
 export interface CreatePlanDto {
   title: string;
   content: string;
   status?: PlanStatus;
+  applicationId?: string | null;
 }
 
 export interface UpdatePlanDto {
   title?: string;
   content?: string;
   status?: PlanStatus;
+  applicationId?: string | null;
 }
 
 export interface CreateIssueDto {
@@ -270,6 +311,7 @@ export interface CreateIssueDto {
   planId?: string | null;
   screenId?: string | null;
   domainId?: string | null;
+  applicationId?: string | null;
 }
 
 export interface UpdateIssueDto {
@@ -285,6 +327,7 @@ export interface UpdateIssueDto {
   planId?: string | null;
   screenId?: string | null;
   domainId?: string | null;
+  applicationId?: string | null;
 }
 
 export interface CreateWireframeDto {
@@ -293,6 +336,7 @@ export interface CreateWireframeDto {
   content: string;
   /** IA 순서(낮을수록 위). 생략 시 같은 name의 기존 순서를 잇고, 없으면 맨 뒤 */
   sequence?: number;
+  applicationId?: string | null;
 }
 
 /** 도메인 upsert (프로젝트 내 name 기준). 재호출 시 갱신 */
@@ -417,6 +461,16 @@ export interface WeeklyActivityPoint {
   done: number;
 }
 
+/** 일별 이슈 추이 (생성 vs 완료). 대시보드 "작업 현황" 차트용. */
+export interface DailyActivityPoint {
+  /** 날짜 (tz 기준 YYYY-MM-DD) */
+  date: string;
+  /** 그 날 생성된 이슈 수 */
+  created: number;
+  /** 그 날 done으로 전이된 이슈 수 */
+  done: number;
+}
+
 // ─── SSE 이벤트 ───
 
 export type BoardEventType =
@@ -425,7 +479,8 @@ export type BoardEventType =
   | 'issue:changed'
   | 'wireframe:changed'
   | 'domain:changed'
-  | 'design:changed';
+  | 'design:changed'
+  | 'application:changed';
 
 export interface BoardEvent {
   type: BoardEventType;

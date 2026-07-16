@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { EventsModule } from './events/events.module';
 import { ActivityModule } from './activity/activity.module';
 import { ProjectsModule } from './projects/projects.module';
+import { ApplicationsModule } from './applications/applications.module';
 import { PlansModule } from './plans/plans.module';
 import { IssuesModule } from './issues/issues.module';
 import { WireframesModule } from './wireframes/wireframes.module';
@@ -18,6 +19,7 @@ import { McpModule } from './mcp/mcp.module';
     EventsModule,
     ActivityModule,
     ProjectsModule,
+    ApplicationsModule,
     PlansModule,
     IssuesModule,
     WireframesModule,

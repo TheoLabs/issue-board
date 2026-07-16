@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import type {
   Project,
+  Application,
   Plan,
   Issue,
   Wireframe,
@@ -49,6 +50,16 @@ const TABS: Tab[] = [
 ];
 const TAB_STORAGE_KEY = 'issue-board:tab';
 
+/** 프로젝트별 마지막 선택 앱(전달 표면)을 기억하는 localStorage 키 */
+const appStorageKey = (projectId: string) => `issue-board:app:${projectId}`;
+function readSavedApp(projectId: string): string | null {
+  try {
+    return localStorage.getItem(appStorageKey(projectId));
+  } catch {
+    return null;
+  }
+}
+
 /** 마크다운 body에서 index번째 체크리스트 항목의 [ ]↔[x]를 토글한 새 body를 반환 */
 function toggleChecklistLine(body: string, index: number): string {
   const lines = body.split('\n');
@@ -70,6 +81,8 @@ export function App() {
   const [theme, toggleTheme] = useTheme();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [wireframes, setWireframes] = useState<Wireframe[]>([]);
@@ -118,12 +131,22 @@ export function App() {
 
   const loadProject = useCallback((projectId: string) => {
     Promise.all([
+      api.listApplications(projectId),
       api.listPlans(projectId),
       api.listIssues(projectId),
       api.listWireframes(projectId),
       api.listDomains(projectId),
       api.getDesign(projectId),
-    ]).then(([pl, is, wf, dm, ds]) => {
+    ]).then(([apps, pl, is, wf, dm, ds]) => {
+      setApplications(apps);
+      // 선택 앱 유지: 현재 선택이 이 프로젝트 앱에 있으면 그대로(같은 프로젝트 리로드),
+      // 아니면 저장값 → 첫 앱 순으로. 다른 프로젝트 id는 apps에 없어 자연히 리셋된다.
+      setSelectedAppId((prev) => {
+        if (prev && apps.some((a) => a.id === prev)) return prev;
+        const saved = readSavedApp(projectId);
+        if (saved && apps.some((a) => a.id === saved)) return saved;
+        return apps[0]?.id ?? null;
+      });
       setPlans(pl);
       setIssues(is);
       setDomains(dm);
@@ -164,6 +187,28 @@ export function App() {
       // 저장 실패는 무시(기능에 영향 없음)
     }
   }, [tab]);
+
+  // 선택 앱을 프로젝트별로 저장 → 재방문 시 마지막 앱 유지
+  useEffect(() => {
+    if (!selectedId || !selectedAppId) return;
+    try {
+      localStorage.setItem(appStorageKey(selectedId), selectedAppId);
+    } catch {
+      // 저장 실패 무시
+    }
+  }, [selectedId, selectedAppId]);
+
+  // 앱 전환 시 선택된 와이어프레임 화면이 그 앱에 없으면 첫 화면으로 옮긴다.
+  useEffect(() => {
+    const active = applications.length >= 2 && selectedAppId != null;
+    const vis = active
+      ? wireframes.filter((w) => w.applicationId === selectedAppId)
+      : wireframes;
+    if (activeName && vis.some((w) => w.name === activeName)) return;
+    const first = vis[0] ?? null;
+    setActiveName(first?.name ?? null);
+    setActiveVersionId(first?.id ?? null);
+  }, [selectedAppId, applications, wireframes, activeName]);
 
   // 외부 Claude 세션(MCP) 변경을 실시간 반영
   useBoardEvents(
@@ -321,8 +366,17 @@ export function App() {
   const linkedDomain = selectedIssue?.domainId
     ? (domains.find((d) => d.id === selectedIssue.domainId) ?? null)
     : null;
+  // 앱 스위처: 앱이 2개 이상일 때만 활성. 선택 앱 기준으로 뷰에 넘길 리스트를 좁힌다.
+  // (전체 issues/plans/wireframes는 딥링크·드로어 조회용으로 그대로 둔다.)
+  const appActive = applications.length >= 2 && selectedAppId != null;
+  const inApp = <T extends { applicationId: string | null }>(xs: T[]): T[] =>
+    appActive ? xs.filter((x) => x.applicationId === selectedAppId) : xs;
+  const visiblePlans = inApp(plans);
+  const visibleWireframes = inApp(wireframes);
+  const visibleIssues = inApp(issues);
+
   const issueQ = issueQuery.trim().toLowerCase();
-  const filteredIssues = issues.filter((i) => {
+  const filteredIssues = visibleIssues.filter((i) => {
     if (filterPlanId === '__none__') {
       if (i.planId) return false;
     } else if (filterPlanId && i.planId !== filterPlanId) {
@@ -355,13 +409,31 @@ export function App() {
         <h1>Issue Board</h1>
         <nav>
           {projects.map((p) => (
-            <button
-              key={p.id}
-              className={p.id === selectedId ? 'active' : ''}
-              onClick={() => selectProject(p.id)}
-            >
-              {p.name}
-            </button>
+            <div key={p.id} className="nav-project">
+              <button
+                className={p.id === selectedId ? 'active' : ''}
+                onClick={() => selectProject(p.id)}
+              >
+                {p.name}
+              </button>
+              {/* 선택된 프로젝트에 앱이 2개 이상이면 하위 앱을 트리로 노출 */}
+              {p.id === selectedId && applications.length >= 2 && (
+                <div className="nav-apps">
+                  {applications.map((a) => (
+                    <button
+                      key={a.id}
+                      className={
+                        a.id === selectedAppId ? 'nav-app active' : 'nav-app'
+                      }
+                      onClick={() => setSelectedAppId(a.id)}
+                      title={a.description ?? undefined}
+                    >
+                      {a.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
           {projects.length === 0 && (
             <p className="hint">
@@ -410,13 +482,13 @@ export function App() {
                       : t === 'daily'
                         ? '일일 업무'
                         : t === 'issues'
-                          ? `이슈 (${issues.length})`
+                          ? `이슈 (${visibleIssues.length})`
                           : t === 'plans'
-                            ? `기획 (${plans.length})`
+                            ? `기획 (${visiblePlans.length})`
                             : t === 'domains'
                               ? `도메인 (${domains.length})`
                               : t === 'wireframes'
-                                ? `와이어프레임 (${new Set(wireframes.map((w) => w.name)).size})`
+                                ? `와이어프레임 (${new Set(visibleWireframes.map((w) => w.name)).size})`
                                 : '디자인 시스템'}
                   </button>
                 ))}
@@ -427,11 +499,12 @@ export function App() {
               {tab === 'overview' && (
                 <Overview
                   projectId={selectedId}
-                  plans={plans}
-                  issues={issues}
+                  plans={visiblePlans}
+                  issues={visibleIssues}
                   domains={domains}
-                  wireframes={wireframes}
+                  wireframes={visibleWireframes}
                   design={design}
+                  applicationId={appActive ? selectedAppId : null}
                   onGoTab={goTab}
                   onSelectIssue={openIssue}
                 />
@@ -460,20 +533,22 @@ export function App() {
                             options={[
                               {
                                 value: '',
-                                label: `전체 (${issues.length})`,
+                                label: `전체 (${visibleIssues.length})`,
                               },
-                              ...plans.map((p) => ({
+                              ...visiblePlans.map((p) => ({
                                 value: p.id,
                                 label: `${p.title} (${
-                                  issues.filter((i) => i.planId === p.id).length
+                                  visibleIssues.filter((i) => i.planId === p.id)
+                                    .length
                                 })`,
                               })),
-                              ...(issues.some((i) => !i.planId)
+                              ...(visibleIssues.some((i) => !i.planId)
                                 ? [
                                     {
                                       value: '__none__',
                                       label: `기획 없음 (${
-                                        issues.filter((i) => !i.planId).length
+                                        visibleIssues.filter((i) => !i.planId)
+                                          .length
                                       })`,
                                     },
                                   ]
@@ -535,13 +610,15 @@ export function App() {
                               {
                                 value: 'epic',
                                 label: `에픽 (${
-                                  issues.filter((i) => i.type === 'epic').length
+                                  visibleIssues.filter((i) => i.type === 'epic')
+                                    .length
                                 })`,
                               },
                               {
                                 value: 'task',
                                 label: `일반 (${
-                                  issues.filter((i) => i.type === 'task').length
+                                  visibleIssues.filter((i) => i.type === 'task')
+                                    .length
                                 })`,
                               },
                             ]}
@@ -592,11 +669,11 @@ export function App() {
               )}
 
               {tab === 'plans' &&
-                (plans.length === 0 ? (
+                (visiblePlans.length === 0 ? (
                   <p className="empty">기획서가 없습니다.</p>
                 ) : (
                   <PlanPanel
-                    plans={plans}
+                    plans={visiblePlans}
                     openPlanId={routePlanId}
                     onOpen={openPlan}
                     onClose={closePlan}
@@ -610,21 +687,22 @@ export function App() {
                 ) : (
                   (() => {
                     // 이름별 그룹 (등장 순서 = 이미 정렬됨). 각 그룹은 버전 내림차순.
+                    // 선택 앱으로 좁힌 목록만 네비에 노출한다.
                     const names: string[] = [];
-                    for (const wf of wireframes) {
+                    for (const wf of visibleWireframes) {
                       if (!names.includes(wf.name)) names.push(wf.name);
                     }
-                    const versions = wireframes.filter(
+                    const versions = visibleWireframes.filter(
                       (w) => w.name === activeName,
                     );
                     const activeWf =
-                      wireframes.find((w) => w.id === activeVersionId) ??
+                      visibleWireframes.find((w) => w.id === activeVersionId) ??
                       versions[0];
                     return (
                       <div className="wireframe-layout">
                         <nav className="wireframe-nav">
                           {names.map((name, i) => {
-                            const latest = wireframes.find(
+                            const latest = visibleWireframes.find(
                               (w) => w.name === name,
                             )!;
                             return (

@@ -269,7 +269,7 @@ export class DailySummaryService {
 
     if (issues.length) {
       lines.push(
-        '## 오늘 건드린 이슈 (완료조건 체크리스트로 진척도·잔여 항목을 평가한다)',
+        '## 해당 날짜에 건드린 이슈 (완료조건 체크리스트로 진척도·잔여 항목을 평가한다)',
       );
       for (const i of issues)
         lines.push(formatIssueDetail(i, issueUrl(summary.projectId, i.id)));
@@ -435,7 +435,7 @@ function dayStartMs(date: string): number {
 
 /**
  * 보고서 포맷 명세(단일 원본) + 오늘의 근거 데이터를 합쳐 claude용 프롬프트를 만든다.
- * 페르소나·규칙·템플릿은 agent/prompts/daily-report.md 하나에서만 관리한다(드리프트 방지).
+ * 페르소나·규칙·템플릿은 agent/skills/ib-shared/daily-report.md 하나에서만 관리한다(드리프트 방지).
  * 여기서는 그 명세 뒤에 (1)활동 로그 (2)작업 항목 실제 내용을 붙인다.
  */
 function buildPrompt(
@@ -453,7 +453,7 @@ function buildPrompt(
     '',
     '========================================',
     '위 [보고서 템플릿]과 규칙에 따라 아래 근거 데이터만으로 보고서를 작성하라.',
-    '[활동 로그]는 오늘 무엇이 바뀌었는지, [작업 항목 실제 내용]은 그 대상이 지금 실제로',
+    '[활동 로그]는 그 날짜에 무엇이 바뀌었는지, [작업 항목 실제 내용]은 그 대상이 지금 실제로',
     '어떤 상태·내용인지다. 진척도와 총평은 활동 로그만이 아니라 실제 내용을 확인해 평가하라.',
     `프로젝트명: ${projectName}`,
     `날짜: ${dotDate}`,
@@ -462,7 +462,7 @@ function buildPrompt(
     `집계: 기획 ${byEntity.plan} · 도메인 ${byEntity.domain} · 이슈 ${byEntity.issue} · 와이어프레임 ${byEntity.wireframe} · 디자인 ${byEntity.design}`,
     ...logLines,
     '',
-    '--- [작업 항목 실제 내용] (오늘 건드린 대상의 현재 상태·본문) ---',
+    '--- [작업 항목 실제 내용] (해당 날짜에 건드린 대상의 현재 상태·본문) ---',
     ...(workLines.length ? workLines : ['(해당 없음)']),
   ].join('\n');
 }
@@ -586,9 +586,9 @@ function truncate(text: string, n: number): string {
 function loadTemplate(): string {
   const candidates = [
     process.env.DAILY_REPORT_TEMPLATE_PATH,
-    resolve(process.cwd(), '../../agent/prompts/daily-report.md'),
-    resolve(process.cwd(), 'agent/prompts/daily-report.md'),
-    resolve(__dirname, '../../../../../agent/prompts/daily-report.md'),
+    resolve(process.cwd(), '../../agent/skills/ib-shared/daily-report.md'),
+    resolve(process.cwd(), 'agent/skills/ib-shared/daily-report.md'),
+    resolve(__dirname, '../../../../../agent/skills/ib-shared/daily-report.md'),
   ].filter((p): p is string => Boolean(p));
   for (const p of candidates) {
     try {

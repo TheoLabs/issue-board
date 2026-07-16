@@ -61,6 +61,7 @@ export function IssueDrawer({
       <aside className="drawer">
         <header className="drawer-head">
           <span className="drawer-head-badges">
+            {issue.key && <span className="issue-key">{issue.key}</span>}
             <span className={`type-chip type-chip-${issue.type}`}>
               {issue.type === 'epic' ? '에픽' : '일반'}
             </span>

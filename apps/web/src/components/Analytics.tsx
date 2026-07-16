@@ -1,156 +1,90 @@
 import { useEffect, useState } from 'react';
-import type { Issue, WeeklyActivityPoint } from '@issue-board/shared';
+import type { Issue, DailyActivityPoint } from '@issue-board/shared';
 import { api } from '../api/client';
 
 /**
- * 대시보드 "진행 분석" 섹션.
- * - 주간 완료 속도(velocity) + 누적 생성 vs 완료(번다운): 활동 로그 시계열(서버).
- * 차트는 무의존 inline SVG. 색은 앱 토큰(--accent, --prio-low) 재사용.
- * 상태 전이 이력은 최근분부터 쌓이므로 시계열은 초기엔 얇게 보인다.
+ * 대시보드 "작업 현황" 섹션 — 최근 1주(7일) 일별 이슈 생성 vs 완료(꺾은선). 활동 로그 시계열(서버).
+ * applicationId가 있으면 그 앱 기준, 없으면 프로젝트 전체.
+ * 차트는 무의존 inline SVG. 색은 앱 토큰(--accent=생성, --prio-low=완료) 재사용.
  */
 export function Analytics({
   projectId,
   issues,
+  applicationId,
 }: {
   projectId: string;
   issues: Issue[];
+  /** 선택된 앱(전달 표면). null이면 프로젝트 전체 기준 */
+  applicationId?: string | null;
 }) {
-  const [trend, setTrend] = useState<WeeklyActivityPoint[] | null>(null);
+  const [trend, setTrend] = useState<DailyActivityPoint[] | null>(null);
 
   useEffect(() => {
     let alive = true;
+    setTrend(null);
     api
-      .getActivityTrend(projectId, 12)
+      .getActivityDailyTrend(projectId, 7, applicationId ?? undefined)
       .then((t) => alive && setTrend(t))
       .catch(() => alive && setTrend([]));
     return () => {
       alive = false;
     };
-  }, [projectId, issues]);
+  }, [projectId, issues, applicationId]);
 
   return (
-    <div className="ov-grid2">
-      <section className="ov-card">
-        <h3 className="ov-card-title">주간 완료 속도</h3>
-        {trend ? (
-          <VelocityChart data={trend} />
-        ) : (
-          <p className="ov-daily-empty">불러오는 중…</p>
-        )}
-      </section>
-      <section className="ov-card">
-        <h3 className="ov-card-title">누적 생성 vs 완료</h3>
-        {trend ? (
-          <CumulativeChart data={trend} />
-        ) : (
-          <p className="ov-daily-empty">불러오는 중…</p>
-        )}
-      </section>
-    </div>
+    <section className="ov-card">
+      <h3 className="ov-card-title">작업 현황</h3>
+      {trend ? (
+        <WorkStatusChart data={trend} />
+      ) : (
+        <p className="ov-daily-empty">불러오는 중…</p>
+      )}
+    </section>
   );
 }
 
-// ─── 시계열 차트 공통 ───
-
-/** weekStart(YYYY-MM-DD) → 'M/D' */
-function md(weekStart: string): string {
-  const [, m, d] = weekStart.split('-');
+/** 'YYYY-MM-DD' → 'M/D' */
+function md(date: string): string {
+  const [, m, d] = date.split('-');
   return `${Number(m)}/${Number(d)}`;
 }
 
-// ─── 주간 완료 속도 (막대) ───
-
-function VelocityChart({ data }: { data: WeeklyActivityPoint[] }) {
-  const W = 320,
-    H = 150,
-    padL = 22,
-    padR = 12,
-    padT = 16,
-    padB = 22;
-  const plotW = W - padL - padR;
-  const plotH = H - padT - padB;
-  const n = data.length;
-  const band = plotW / Math.max(1, n);
-  const barW = Math.min(band * 0.55, 34);
-  const max = Math.max(1, ...data.map((d) => d.done));
-  const baseY = padT + plotH;
-
-  return (
-    <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="주간 완료 속도">
-      <line className="chart-axis" x1={padL} y1={baseY} x2={W - padR} y2={baseY} />
-      {data.map((d, i) => {
-        const cx = padL + band * i + band / 2;
-        const h = (d.done / max) * plotH;
-        const y = baseY - h;
-        return (
-          <g key={d.weekStart}>
-            {d.done > 0 && (
-              <rect
-                className="chart-bar"
-                x={cx - barW / 2}
-                y={y}
-                width={barW}
-                height={h}
-                rx={3}
-              >
-                <title>{`주 ${md(d.weekStart)}: 완료 ${d.done}`}</title>
-              </rect>
-            )}
-            {d.done > 0 && (
-              <text className="chart-vallabel" x={cx} y={y - 4} textAnchor="middle">
-                {d.done}
-              </text>
-            )}
-            <text className="chart-xlabel" x={cx} y={baseY + 14} textAnchor="middle">
-              {md(d.weekStart)}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
-// ─── 누적 생성 vs 완료 (라인) ───
-
-function CumulativeChart({ data }: { data: WeeklyActivityPoint[] }) {
-  const W = 320,
-    H = 160,
+/** 일별 생성(파랑)·완료(초록) 꺾은선. 점 개수가 늘어도 겹침이 없다. */
+function WorkStatusChart({ data }: { data: DailyActivityPoint[] }) {
+  // 카드가 전체 폭이라 뷰박스를 넓고 낮게 잡아 렌더 높이를 줄인다(폭:높이 ≈ 5:1).
+  // padT는 최상단(최댓값) 점 위의 수량 라벨이 잘리지 않도록 여유를 둔다.
+  const W = 600,
+    H = 122,
     padL = 26,
-    padR = 44,
-    padT = 14,
-    padB = 22;
+    padR = 14,
+    padT = 22,
+    padB = 20;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
   const n = data.length;
-
-  let cc = 0,
-    cd = 0;
-  const pts = data.map((d) => {
-    cc += d.created;
-    cd += d.done;
-    return { week: d.weekStart, created: cc, done: cd };
-  });
-  const max = Math.max(1, cc);
-  const x = (i: number) => padL + (n <= 1 ? plotW / 2 : (plotW * i) / (n - 1));
+  const max = Math.max(1, ...data.map((d) => Math.max(d.created, d.done)));
+  const x = (i: number) =>
+    padL + (n <= 1 ? plotW / 2 : (plotW * i) / (n - 1));
   const y = (v: number) => padT + plotH * (1 - v / max);
   const baseY = padT + plotH;
 
-  const line = (key: 'created' | 'done') =>
-    pts.map((p, i) => `${x(i)},${y(p[key])}`).join(' ');
-  const last = pts[pts.length - 1];
-
-  const series: { key: 'created' | 'done'; label: string; cls: string }[] = [
-    { key: 'created', label: '생성', cls: 'created' },
-    { key: 'done', label: '완료', cls: 'done' },
+  const series: { key: 'created' | 'done'; label: string }[] = [
+    { key: 'created', label: '생성' },
+    { key: 'done', label: '완료' },
   ];
+  const line = (key: 'created' | 'done') =>
+    data.map((d, i) => `${x(i)},${y(d[key])}`).join(' ');
+
+  // x축 라벨 솎기: 최대 7~8개만, 마지막(오늘)은 항상 표시 → 겹침 방지
+  const step = Math.max(1, Math.ceil(n / 7));
+  const showTick = (i: number) => i % step === 0 || i === n - 1;
 
   return (
     <div>
       <div className="chart-legend">
         {series.map((s) => (
           <span key={s.key} className="chart-legend-item">
-            <span className={`chart-swatch chart-swatch--${s.cls}`} />
+            <span className={`chart-swatch chart-swatch--${s.key}`} />
             {s.label}
           </span>
         ))}
@@ -159,48 +93,57 @@ function CumulativeChart({ data }: { data: WeeklyActivityPoint[] }) {
         className="chart"
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label="누적 생성 vs 완료"
+        aria-label="일별 생성·완료 현황"
       >
         <line className="chart-axis" x1={padL} y1={baseY} x2={W - padR} y2={baseY} />
         {series.map((s) => (
           <g key={s.key}>
             {n > 1 && (
               <polyline
-                className={`chart-line chart-line--${s.cls}`}
+                className={`chart-line chart-line--${s.key}`}
                 points={line(s.key)}
               />
             )}
-            {pts.map((p, i) => (
+            {data.map((d, i) => (
               <circle
                 key={i}
-                className={`chart-dot chart-dot--${s.cls}`}
+                className={`chart-dot chart-dot--${s.key}`}
                 cx={x(i)}
-                cy={y(p[s.key])}
-                r={3}
+                cy={y(d[s.key])}
+                r={2.5}
               >
-                <title>{`주 ${md(p.week)}: ${s.label} ${p[s.key]}`}</title>
+                <title>{`${md(d.date)}: ${s.label} ${d[s.key]}`}</title>
               </circle>
             ))}
-            <text
-              className={`chart-endlabel chart-endlabel--${s.cls}`}
-              x={x(pts.length - 1) + 6}
-              y={y(last[s.key]) + 3}
-            >
-              {s.label} {last[s.key]}
-            </text>
+            {/* 실제 수량 라벨 — 계열 색으로. 밀집 구간(2주+)은 x축과 같게 솎고 0은 생략 */}
+            {data.map((d, i) =>
+              showTick(i) && d[s.key] > 0 ? (
+                <text
+                  key={`v-${i}`}
+                  className={`chart-endlabel chart-endlabel--${s.key}`}
+                  x={x(i)}
+                  y={y(d[s.key]) - 6}
+                  textAnchor="middle"
+                >
+                  {d[s.key]}
+                </text>
+              ) : null,
+            )}
           </g>
         ))}
-        {data.map((d, i) => (
-          <text
-            key={d.weekStart}
-            className="chart-xlabel"
-            x={x(i)}
-            y={baseY + 14}
-            textAnchor="middle"
-          >
-            {md(d.weekStart)}
-          </text>
-        ))}
+        {data.map((d, i) =>
+          showTick(i) ? (
+            <text
+              key={d.date}
+              className="chart-xlabel"
+              x={x(i)}
+              y={baseY + 14}
+              textAnchor="middle"
+            >
+              {md(d.date)}
+            </text>
+          ) : null,
+        )}
       </svg>
     </div>
   );

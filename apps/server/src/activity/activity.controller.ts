@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Post, Query } from '@nestjs/common';
 import type {
+  DailyActivityPoint,
   DailyCount,
   DailyReport,
   DailySummary,
@@ -36,9 +37,35 @@ export class ActivityController {
     @Param('projectId') projectId: string,
     @Query('weeks') weeks?: string,
     @Query('tz') tz?: string,
+    @Query('applicationId') applicationId?: string,
   ): Promise<WeeklyActivityPoint[]> {
     const n = weeks ? Math.max(1, Math.min(52, Number(weeks) || 12)) : 12;
-    return this.activity.trend(projectId, n, tz || undefined);
+    return this.activity.trend(
+      projectId,
+      n,
+      tz || undefined,
+      applicationId || undefined,
+    );
+  }
+
+  /**
+   * GET /projects/:projectId/activity/trend/daily?days=7&tz=&applicationId=
+   * 일별 이슈 추이(생성 vs 완료). "작업 현황" 차트용. 기본 최근 7일.
+   */
+  @Get('projects/:projectId/activity/trend/daily')
+  dailyTrend(
+    @Param('projectId') projectId: string,
+    @Query('days') days?: string,
+    @Query('tz') tz?: string,
+    @Query('applicationId') applicationId?: string,
+  ): Promise<DailyActivityPoint[]> {
+    const n = days ? Math.max(1, Math.min(90, Number(days) || 7)) : 7;
+    return this.activity.dailyTrend(
+      projectId,
+      n,
+      tz || undefined,
+      applicationId || undefined,
+    );
   }
 
   /**

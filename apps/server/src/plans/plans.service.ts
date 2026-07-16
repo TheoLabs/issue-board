@@ -52,6 +52,7 @@ export class PlansService {
         title: dto.title,
         content: dto.content,
         status: dto.status ?? 'draft',
+        applicationId: dto.applicationId ?? null,
       },
     });
     const plan = toPlan(row);
@@ -88,6 +89,7 @@ export class PlansService {
         title: dto.title,
         content: dto.content,
         status: dto.status,
+        applicationId: dto.applicationId,
         version: { increment: 1 },
       },
     });

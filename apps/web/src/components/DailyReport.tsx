@@ -117,6 +117,10 @@ export function DailyReport({
   const today = todayKst();
   const todayCount = days.find((d) => d.date === today)?.total ?? 0;
   const pastDays = days.filter((d) => d.date !== today);
+  // 성공적으로 생성된(ready + 본문) 요약이 있을 때만 "다시 요약"으로 본다.
+  // status='error'(실패한 시도)나 빈 본문은 아직 요약 없음으로 취급한다.
+  const hasReport = report?.status === 'ready' && !!report.content;
+  const failedReport = report?.status === 'error';
 
   return (
     <div className="domain-layout">
@@ -177,13 +181,15 @@ export function DailyReport({
                 className="ov-report-btn"
                 onClick={generateReport}
                 disabled={generating}
-                title="오늘 변경 스냅샷을 Claude가 읽어 서술형 요약을 생성합니다"
+                title="선택한 날짜의 변경 스냅샷을 Claude가 읽어 서술형 요약을 생성합니다"
               >
                 {generating
                   ? '요약 중…'
-                  : report
+                  : hasReport
                     ? '↻ 다시 요약'
-                    : '✦ AI 요약하기'}
+                    : failedReport
+                      ? '↻ 다시 시도'
+                      : '✦ AI 요약하기'}
               </button>
             )}
             {report?.status === 'ready' && report.content && (
@@ -204,6 +210,12 @@ export function DailyReport({
               AI 요약 실패: {genError}
             </p>
           )}
+          {!genError && failedReport && !generating && (
+            <p className="ov-daily-empty" style={{ color: 'var(--danger, #d33)' }}>
+              이전 AI 요약 시도가 실패했습니다
+              {report?.error ? `: ${report.error}` : ''}. ‘다시 시도’를 눌러 재생성하세요.
+            </p>
+          )}
           {(report?.status === 'ready' && report.content) || generating ? (
             <div className="ov-ai-report">
               <div className="ov-ai-report-head">
@@ -217,7 +229,9 @@ export function DailyReport({
                 )}
               </div>
               {generating && !report ? (
-                <p className="ov-daily-empty">Claude가 오늘 변경을 요약하는 중…</p>
+                <p className="ov-daily-empty">
+                  Claude가 {date} 변경을 요약하는 중…
+                </p>
               ) : (
                 <div className="ov-ai-report-body markdown-body">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -232,7 +246,7 @@ export function DailyReport({
             <p className="ov-daily-empty">불러오는 중…</p>
           ) : summary.total === 0 ? (
             <p className="ov-daily-empty">이 날짜에 기록된 변경이 없습니다.</p>
-          ) : !report && !generating ? (
+          ) : !hasReport && !failedReport && !generating ? (
             <p className="ov-daily-empty">
               ‘AI 요약하기’를 눌러 이 날짜의 업무 보고서를 생성하세요.
             </p>

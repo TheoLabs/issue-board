@@ -79,6 +79,7 @@ export function IssueTable({
             ) : (
               <span className="tree-toggle-spacer" />
             )}
+            {issue.key && <span className="issue-key">{issue.key}</span>}
             <span className={`type-chip type-chip-${issue.type}`}>
               {isEpic ? '에픽' : '일반'}
             </span>
