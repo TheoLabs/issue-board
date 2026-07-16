@@ -10,7 +10,11 @@
  *
  * 폴더 구조: 루트 `이슈보드 일일요약` / `{프로젝트명}` / 날짜별 Google Docs 문서.
  * 같은 날짜 문서가 있으면 새로 만들지 않고 내용을 갱신(덮어쓰기)한다.
+ *
+ * 본문은 마크다운을 HTML로 변환해 `text/html`로 올린다 — Drive가 HTML `<table>`을
+ * **네이티브 Docs 표**로 변환하기 때문(마크다운 표는 텍스트로 남는 경우가 있다).
  */
+import { reportMarkdownToHtml } from './reportHtml';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const ROOT_FOLDER = '이슈보드 일일요약';
@@ -200,12 +204,12 @@ async function findDoc(
 
 const BOUNDARY = 'ib-daily-boundary-7f3a';
 
-/** 마크다운을 새 Google Docs 문서로 생성(멀티파트 업로드 + 변환). */
+/** HTML을 새 Google Docs 문서로 생성(멀티파트 업로드 + 변환). 표는 네이티브 Docs 표가 된다. */
 async function createDoc(
   token: string,
   name: string,
   parentId: string,
-  markdown: string,
+  html: string,
 ): Promise<{ id: string; webViewLink: string }> {
   const metadata = { name, parents: [parentId], mimeType: DOC_MIME };
   const body =
@@ -213,8 +217,8 @@ async function createDoc(
     'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
     `${JSON.stringify(metadata)}\r\n` +
     `--${BOUNDARY}\r\n` +
-    'Content-Type: text/markdown; charset=UTF-8\r\n\r\n' +
-    `${markdown}\r\n` +
+    'Content-Type: text/html; charset=UTF-8\r\n\r\n' +
+    `${html}\r\n` +
     `--${BOUNDARY}--`;
   return driveJson(
     token,
@@ -227,19 +231,19 @@ async function createDoc(
   );
 }
 
-/** 기존 문서 내용을 마크다운으로 교체(재변환). */
+/** 기존 문서 내용을 HTML로 교체(재변환). 표는 네이티브 Docs 표가 된다. */
 async function updateDoc(
   token: string,
   fileId: string,
-  markdown: string,
+  html: string,
 ): Promise<{ id: string; webViewLink: string }> {
   return driveJson(
     token,
     `${UPLOAD}/files/${fileId}?uploadType=media&fields=id,webViewLink`,
     {
       method: 'PATCH',
-      headers: { 'Content-Type': 'text/markdown; charset=UTF-8' },
-      body: markdown,
+      headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+      body: html,
     },
   );
 }
@@ -258,14 +262,11 @@ export async function uploadDailyReport(params: {
   const projectFolderId = await ensureFolder(token, params.projectName, rootId);
   const existing = await findDoc(token, params.fileName, projectFolderId);
 
+  // 표가 네이티브 Docs 표가 되도록 마크다운을 HTML로 변환해 올린다.
+  const html = reportMarkdownToHtml(params.markdown);
   const doc = existing
-    ? await updateDoc(token, existing, params.markdown)
-    : await createDoc(
-        token,
-        params.fileName,
-        projectFolderId,
-        params.markdown,
-      );
+    ? await updateDoc(token, existing, html)
+    : await createDoc(token, params.fileName, projectFolderId, html);
 
   return {
     fileId: doc.id,
