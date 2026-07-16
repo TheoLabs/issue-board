@@ -12,7 +12,7 @@ apps/server/prisma/*.db
 apps/server/prisma/*.db-journal
 apps/server/prisma/migrations/dev.db*
 # 임시 DB 스냅샷(백업) — 소스가 아니므로 추적하지 않는다
-apps/server/prisma/backups/
+# apps/server/prisma/backups/
 
 # env
 .env
