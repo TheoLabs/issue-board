@@ -10,9 +10,15 @@
 > 이슈는 사람이 읽는 **키**(예: `CH-12`)로 지칭할 수 있다 — `issueId` 자리에 키를 넣으면
 > 된다(긴 cuid도 계속 통한다). `get_project_context`가 각 이슈의 `key`를 함께 준다.
 
+> 🔴 **기획 확정 가드 (반드시 준수)**: 기획이 **`approved`가 아닌 이슈로는 코드를 작성하지
+> 마라.** `get_project_context`의 `guard`(및 각 기획 `status`)를 확인해, 착수할 이슈의 기획이
+> draft(미확정)면 **구현을 멈추고** "이 기획은 아직 확정(approved)되지 않았습니다 — 확정 후
+> 개발을 진행하겠습니다"라고 사용자에게 알려라. 착수 표시(`update_issue_status`를
+> in_progress/done)도 **서버가 거부**한다. 기획이 확정돼야 개발이 이뤄지는 프로세스다.
+
 - **작업 시작 전**: `get_project_context(repoPath=<이 저장소의 절대경로>)`로 기획서와
-  이슈를 읽어 현재 맥락을 파악한다.
-- **이슈 착수 시**: 해당 이슈를 `update_issue_status(CH-12, "in_progress")`로 표시.
+  이슈를 읽어 현재 맥락을 파악하고, **착수할 이슈의 기획이 approved인지 확인**한다.
+- **이슈 착수 시**(기획이 approved일 때만): `update_issue_status(CH-12, "in_progress")`로 표시.
 - **완료 조건 체크박스 동기화**: 이슈 본문의 "완료 조건" 체크리스트 항목을 실제로 끝낼
   때마다, `get_issue`로 본문을 읽어 해당 `- [ ]`를 `- [x]`로 바꾼 뒤
   `update_issue(issueId, body=<수정본>)`로 저장한다. **본문의 다른 부분은 건드리지 마라.**

@@ -204,7 +204,16 @@ export function PlanPanel({
                 ]}
               />
             </div>
-            <button className="link-btn snapshot-btn" onClick={saveSnapshot}>
+            <button
+              className="link-btn snapshot-btn"
+              onClick={saveSnapshot}
+              disabled={openPlan.status !== 'approved'}
+              title={
+                openPlan.status !== 'approved'
+                  ? '승인된 기획만 버전 이력을 남깁니다 (확정 후 사용)'
+                  : '현재 작업본을 버전으로 저장'
+              }
+            >
               📌 버전 저장
             </button>
           </div>

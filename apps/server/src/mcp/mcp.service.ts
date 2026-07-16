@@ -103,7 +103,7 @@ export class McpService {
     this.tool(
       server,
       'get_project_context',
-      '로컬 경로(cwd)로 프로젝트를 매칭해 애플리케이션·기획·이슈·와이어프레임 요약을 반환한다. 다른 세션에서 프로젝트를 이어받을 때 사용. 한 프로젝트에 여러 앱(전달 표면)이 있으면 applications로 구분되며, 기획·이슈·와이어프레임의 applicationId가 소속 앱을 가리킨다(도메인은 앱 공유).',
+      '로컬 경로(cwd)로 프로젝트를 매칭해 애플리케이션·기획·이슈·와이어프레임 요약을 반환한다. 다른 세션에서 프로젝트를 이어받을 때 사용. 한 프로젝트에 여러 앱(전달 표면)이 있으면 applications로 구분되며, 기획·이슈·와이어프레임의 applicationId가 소속 앱을 가리킨다(도메인은 앱 공유). 응답의 guard는 기획 확정 가드 신호다 — approved가 아닌 기획의 이슈는 착수(코드 작성)하면 안 된다.',
       { repoPath: z.string().describe('프로젝트 로컬 절대 경로 (cwd)') },
       async (args) => {
         const repoPath = args.repoPath as string;
@@ -123,6 +123,19 @@ export class McpService {
             this.domains.listByProject(project.id),
             this.designs.getByProject(project.id),
           ]);
+        // 기획 확정 가드 신호: 승인되지 않은 기획의 이슈는 착수(코드 작성) 금지.
+        const approvedPlans = plans.filter((p) => p.status === 'approved');
+        const unapprovedPlans = plans.filter((p) => p.status !== 'approved');
+        const guard = {
+          codeReady: approvedPlans.length > 0,
+          rule: '기획이 approved가 아닌 이슈는 착수(코드 작성)하지 마라. unapprovedPlans에 속한(planId가 일치하는) 이슈는 update_issue_status(in_progress/done)를 서버가 거부한다. 확정이 필요하면 사용자에게 알려라.',
+          approvedPlanIds: approvedPlans.map((p) => p.id),
+          unapprovedPlans: unapprovedPlans.map((p) => ({
+            id: p.id,
+            title: p.title,
+            status: p.status,
+          })),
+        };
         return json({
           matched: true,
           project,
@@ -132,6 +145,7 @@ export class McpService {
           wireframes,
           domains,
           design,
+          guard,
         });
       },
     );
@@ -549,19 +563,23 @@ export class McpService {
     this.tool(
       server,
       'update_issue_status',
-      '이슈 상태를 전이한다 (todo→in_progress→done 등). 코딩 진행에 따라 호출.',
+      '이슈 상태를 전이한다 (todo→in_progress→done 등). 코딩 진행에 따라 호출. ⚠️ 기획 확정 가드: 이슈의 기획이 approved가 아니면 in_progress/done 전이가 거부된다 — 확정된 기획의 이슈만 착수(코드 작성)할 수 있다.',
       {
         issueId: z
           .string()
           .describe('이슈 id(cuid) 또는 사람 키(예: CH-12) 둘 다 가능'),
         status: z.enum(ISSUE_STATUS),
       },
-      async (args) =>
-        json(
-          await this.issues.update(args.issueId as string, {
-            status: args.status as IssueStatus,
-          }),
-        ),
+      async (args) => {
+        const status = args.status as IssueStatus;
+        // 기획 확정 가드: 미승인 기획의 이슈는 착수/완료할 수 없다.
+        if (status === 'in_progress' || status === 'done') {
+          await this.issues.assertPlanApproved(args.issueId as string);
+        }
+        return json(
+          await this.issues.update(args.issueId as string, { status }),
+        );
+      },
     );
 
     this.tool(
@@ -651,7 +669,7 @@ export class McpService {
     this.tool(
       server,
       'snapshot_plan',
-      '현재 기획 작업본을 마일스톤 버전으로 고정한다(이력에 새 버전 추가). 의미 있는 시점(초안 확정, 범위 확정 등)에만 사용하라.',
+      '현재 기획 작업본을 마일스톤 버전으로 고정한다(이력에 새 버전 추가). **승인된(approved) 기획만 대상** — 초안(draft)은 이력을 남기지 않는다(확정 후 사용). 승인본의 의미 있는 시점(범위 확정 등)에만 사용하라.',
       {
         planId: z.string(),
         label: z.string().optional().describe('버전 이름/사유 (예: "MVP 범위 확정")'),

@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -67,8 +68,10 @@ export class PlansService {
   }
 
   /**
-   * 작업본 덮어쓰기. 매 편집은 버전을 만들지 않는다(초안 편집 효율).
-   * 단, draft→approved 전이 시에는 그 시점을 자동으로 마일스톤 스냅샷한다.
+   * 작업본 덮어쓰기. 이력(버전)은 **승인된 기획에만** 남긴다:
+   * - draft 편집: 스냅샷 없음 (초안은 자유롭게 다듬는다 — 버전이 쌓이지 않음)
+   * - draft→approved 전이: 승인 시점을 마일스톤 스냅샷("승인")
+   * - 이미 approved인 기획의 제목/본문 변경: 변경 결과를 이력으로 스냅샷("수정")
    * (Plan.version은 낙관적 잠금용 카운터로만 증가; 마일스톤 번호와 무관)
    */
   async update(
@@ -96,7 +99,15 @@ export class PlansService {
 
     const becameApproved =
       dto.status === 'approved' && current.status !== 'approved';
-    if (becameApproved) await this.snapshot(row, '승인');
+    const contentChanged =
+      (dto.title !== undefined && dto.title !== current.title) ||
+      (dto.content !== undefined && dto.content !== current.content);
+    // 초안 편집은 이력을 남기지 않는다. 승인 전이·승인본 변경만 스냅샷.
+    if (becameApproved) {
+      await this.snapshot(row, '승인');
+    } else if (current.status === 'approved' && contentChanged) {
+      await this.snapshot(row, '수정');
+    }
 
     const plan = toPlan(row);
     const statusChanged = current.status !== row.status;
@@ -113,10 +124,16 @@ export class PlansService {
     return plan;
   }
 
-  /** 명시적 마일스톤 스냅샷 (현재 작업본을 새 버전으로 고정) */
+  /** 명시적 마일스톤 스냅샷 (현재 작업본을 새 버전으로 고정). 승인된 기획만 대상. */
   async createSnapshot(planId: string, label?: string): Promise<Plan> {
     const row = await this.prisma.plan.findUnique({ where: { id: planId } });
     if (!row) throw new NotFoundException(`Plan ${planId} not found`);
+    // 초안(draft)은 이력을 남기지 않는다 — 승인된 기획만 버저닝한다.
+    if (row.status !== 'approved') {
+      throw new ForbiddenException(
+        `초안(현재: ${row.status}) 기획은 스냅샷하지 않습니다. 기획을 확정(approved)한 뒤 이력을 남기세요.`,
+      );
+    }
     await this.snapshot(row, label);
     await this.activity.record({
       projectId: row.projectId,

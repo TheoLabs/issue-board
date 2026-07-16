@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -56,6 +57,32 @@ export class IssuesService {
         `이슈 키 ${ref}가 여러 프로젝트에 존재합니다. 정확한 이슈 id를 사용하세요.`,
       );
     return matches[0].id;
+  }
+
+  /**
+   * 기획 확정 가드: 이 이슈의 기획이 approved가 아니면 착수(코드 작성)를 막는다.
+   * 착수/완료 상태 전이 전에 호출한다. 기획 미연결(planId 없음) 이슈는 판정 불가라 통과.
+   * (기획이 확정돼야 개발이 이뤄지는 프로세스를 서버에서 강제하는 지점.)
+   */
+  async assertPlanApproved(ref: string): Promise<void> {
+    const id = await this.resolveId(ref);
+    const issue = await this.prisma.issue.findUnique({
+      where: { id },
+      select: { planId: true, key: true, title: true },
+    });
+    if (!issue) throw new NotFoundException(`Issue ${ref} not found`);
+    if (!issue.planId) return; // 기획 미연결 — 가드 대상 아님
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: issue.planId },
+      select: { status: true, title: true },
+    });
+    if (plan && plan.status !== 'approved') {
+      throw new ForbiddenException(
+        `기획 "${plan.title}"이(가) 아직 확정(approved)되지 않았습니다 (현재: ${plan.status}). ` +
+          `확정되지 않은 기획의 이슈(${issue.key ?? id})는 착수(코드 작성)할 수 없습니다. ` +
+          `기획을 검토·확정(approved)한 뒤 다시 진행하세요.`,
+      );
+    }
   }
 
   async create(projectId: string, dto: CreateIssueDto): Promise<Issue> {
