@@ -7,9 +7,12 @@
 
 이 프로젝트의 기획·이슈는 issue-board(`http://localhost:4000/mcp`, MCP)로 관리된다.
 
+> 이슈는 사람이 읽는 **키**(예: `CH-12`)로 지칭할 수 있다 — `issueId` 자리에 키를 넣으면
+> 된다(긴 cuid도 계속 통한다). `get_project_context`가 각 이슈의 `key`를 함께 준다.
+
 - **작업 시작 전**: `get_project_context(repoPath=<이 저장소의 절대경로>)`로 기획서와
   이슈를 읽어 현재 맥락을 파악한다.
-- **이슈 착수 시**: 해당 이슈를 `update_issue_status(issueId, "in_progress")`로 표시.
+- **이슈 착수 시**: 해당 이슈를 `update_issue_status(CH-12, "in_progress")`로 표시.
 - **완료 조건 체크박스 동기화**: 이슈 본문의 "완료 조건" 체크리스트 항목을 실제로 끝낼
   때마다, `get_issue`로 본문을 읽어 해당 `- [ ]`를 `- [x]`로 바꾼 뒤
   `update_issue(issueId, body=<수정본>)`로 저장한다. **본문의 다른 부분은 건드리지 마라.**

@@ -1,39 +1,58 @@
-# Issue Board — Claude Code 연동 자산
+# Issue Board — Claude Code 스킬 자산
 
-이슈보드의 산출물을 **Claude Code로 생성/갱신**하기 위한 슬래시 커맨드와 규칙.
-원본은 여기서 버전관리하고, 사용 시 유저 스코프로 복사한다.
+이슈보드의 산출물(기획 · 와이어프레임 · 도메인 · 이슈 · 디자인)을 **Claude Code 스킬로
+생성/갱신**하기 위한 슬래시 스킬 모음. 원본은 여기서 버전관리하고, 사용 시 유저 스코프로
+설치한다.
 
-## 구성
+> 슬래시 커맨드는 이제 **스킬로 통합**됐다. 각 스킬은 `skills/<이름>/SKILL.md` 디렉터리라
+> **보조 파일(공유 스펙)을 필요할 때만 로드**할 수 있다(progressive disclosure).
 
-| 파일 | 성격 | 용도 |
+## 스킬 목록
+
+| 스킬 | 성격 | 용도 |
 |------|------|------|
-| `commands/ib-generate.md` | **오케스트레이터** | 기획→와이어프레임→도메인→이슈를 한 번에 순차 생성 (단계 사이 체크포인트) |
-| `commands/ib-plan.md` | 생성 1단계 | 아이디어 → 기획서 적재 (모호할 때만 명확화 질문) |
-| `commands/ib-wireframe.md` | 생성 2단계 | 기획 → 클릭스루 프로토타입 적재 |
-| `commands/ib-domain.md` | 생성 3단계 | 도메인/컬럼 → 표로 정리해 적재 (첫 설계는 초안) |
-| `commands/ib-issues.md` | 생성 4단계 | 기획 → 이슈 트리 적재 (제목 `[영역]`, 완료 조건 `- [ ]` 체크박스, 기획/화면/도메인 연동) |
-| `commands/ib-design.md` | 별도 | 메인 색 → 디자인 토큰 시스템 생성 (오케스트레이션과 별개) |
-| `commands/ib-progress.md` | 유지보수 | 실제 진행도에 맞춰 이슈 완료 조건 체크박스·상태 재조정 |
-| `commands/ib-daily.md` | 회고 | 오늘의 활동을 일일 업무 요약으로 정리해 구글 드라이브에 업로드 |
-| `CLAUDE.snippet.md` | 진행 규칙 | 대상 프로젝트 CLAUDE.md에 붙여 상시 연동 |
+| `ib-generate` | **오케스트레이터** | 기획→와이어프레임→도메인→이슈를 한 번에 순차 생성 (단계 사이 체크포인트) |
+| `ib-plan` | 생성 1단계 | 아이디어 → 기획서 적재 (모호할 때만 명확화 질문) |
+| `ib-wireframe` | 생성 2단계 | 기획 → 화면별 와이어프레임 적재 (IA 순서) |
+| `ib-domain` | 생성 3단계 | 도메인/컬럼 → 표·ERD·상태흐름도로 적재 (첫 설계는 초안) |
+| `ib-issues` | 생성 4단계 | 기획 → 이슈 트리 적재 (제목 `[영역]`, 완료 조건 `- [ ]`, 기획/화면/도메인 연동) |
+| `ib-design` | 별도 | 메인 색 → 디자인 토큰 시스템 생성 |
+| `ib-progress` | 유지보수 | 실제 진행도에 맞춰 이슈 완료 조건 체크박스·상태 재조정 |
+| `ib-daily` | 회고 | 오늘의 활동을 일일 업무 요약으로 정리해 구글 드라이브에 업로드 |
+| `ib-shared` | **공유 스펙(비호출)** | 위 스킬들이 공유하는 규약·템플릿의 단일 원본. 직접 실행하지 않는다 |
 
-`/ib-generate`로 한 번에 돌리거나, 단계를 나눠 개별 커맨드로 돌릴 수 있다 (둘은 같은
-규칙을 공유한다).
+`/ib-generate`로 한 번에 돌리거나, 단계를 나눠 개별 스킬로 돌릴 수 있다 (둘은 `ib-shared`의
+같은 스펙을 공유한다).
 
-생성 단계 커맨드는 **보드를 공유 상태로 읽어** 이어진다: `/ib-wireframe`·`/ib-domain`·
-`/ib-issues`는 직전 단계가 적재한 기획을 `get_project_context`로 읽는다. 그래서 다른
-세션에서 이어받아도 동작한다.
+## 공유 스펙 (`ib-shared`) — 단일 원본
+
+규약·템플릿을 스킬마다 복붙하지 않고 **한곳에서 관리**한다. 각 스킬의 `SKILL.md`가 필요한
+파일만 상대링크로 인용하고, Claude가 그 단계에서만 읽는다.
+
+| 파일 | 내용 |
+|------|------|
+| `conventions.md` | MCP 전제 · cwd 규칙 · draft/upsert · 완료조건 체크박스 · "코드 구현 금지" |
+| `application-model.md` | 애플리케이션(전달 표면) 모델 · **이슈 키(CH-12)** · 접두사 묻기 규칙 |
+| `plan-spec.md` | 기획서 8섹션 마크다운 템플릿 |
+| `issue-spec.md` | 이슈 정규화 규격 (제목 · 본문 · value/effort · 연동) |
+| `wireframe-style.md` | 와이어프레임 공통 스타일 CSS · 구조 컨벤션 |
+| `daily-report.md` | 일일 업무 보고서 출력 포맷 계약 (앱 내부 'AI 요약하기'/cron과 공유) |
+
+> **규약/템플릿을 바꾸려면 `ib-shared`의 해당 파일만 고친다.** 모든 스킬이 자동으로 따라온다.
 
 ## 설치 (유저 스코프)
 
 ```bash
-# 어느 프로젝트에서든 /ib-plan 등을 쓸 수 있게 유저 스코프로 복사
-mkdir -p ~/.claude/commands
-cp agent/commands/ib-*.md ~/.claude/commands/
+# 어느 프로젝트에서든 /ib-plan 등을 쓸 수 있게 유저 스코프로 설치
+mkdir -p ~/.claude/skills
+cp -R agent/skills/* ~/.claude/skills/
 ```
 
-> 원본을 계속 따라가려면 복사 대신 심링크:
-> `ln -sf "$(pwd)/agent/commands/"ib-*.md ~/.claude/commands/`
+> 원본을 계속 따라가려면 복사 대신 심링크(스킬 디렉터리째):
+> ```bash
+> for d in agent/skills/*/; do ln -sfn "$(pwd)/$d" ~/.claude/skills/"$(basename "$d")"; done
+> ```
+> `ib-shared`까지 함께 설치해야 한다 — 다른 스킬이 상대경로로 인용한다.
 
 ## 사용 흐름
 
@@ -47,7 +66,7 @@ cp agent/commands/ib-*.md ~/.claude/commands/
 
 ```
 /ib-generate 팀 협업용 칸반 앱을 만들고 싶어
-   → 기획 → [확인] → 와이어프레임 → [확인] → 이슈
+   → (앱/접두사 확인) → 기획 → [확인] → 와이어프레임 → [확인] → 도메인 → [확인] → 이슈
 ```
 
 또는 단계를 나눠서 (각 단계를 대시보드에서 충분히 검토하고 싶을 때):
@@ -60,5 +79,16 @@ cp agent/commands/ib-*.md ~/.claude/commands/
 /ib-issues
 ```
 
-이후 실제 개발 세션에서는 `CLAUDE.snippet.md`를 대상 프로젝트 CLAUDE.md에 넣어두면
-`get_project_context`로 맥락을 읽고 `update_issue_status`로 진행을 갱신한다.
+## 이슈 키 (CH-12)
+
+- 한 프로젝트는 여러 **애플리케이션**(전달 표면, 예: 사용자 앱 · 백오피스)으로 나뉜다.
+  **모든 이슈는 앱 하나에 속하고**, 앱의 **접두사 + 앱별 순번**으로 키를 받는다 (예: `CH-12`).
+- 새 앱을 만들 때 스킬이 **접두사를 물어본다**(예: 추노앱 → `CH`). 도메인(데이터 모델)은 앱 공유다.
+- 이후 세션은 이슈를 **키로 지칭**할 수 있다 — `update_issue_status(CH-12, done)`처럼
+  긴 cuid 대신 짧은 키를 쓴다 (cuid도 계속 통한다).
+
+## 진행 세션 연동 (`CLAUDE.snippet.md`)
+
+생성이 끝난 뒤 **실제 개발 세션**에서는 [`CLAUDE.snippet.md`](CLAUDE.snippet.md)를 대상
+프로젝트의 `CLAUDE.md`에 넣어두면, 모든 세션이 `get_project_context`로 맥락을 읽고
+`update_issue_status`로 진행을 갱신한다. (이슈는 키 `CH-12`로 지칭한다.)
