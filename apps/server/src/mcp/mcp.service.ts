@@ -704,20 +704,5 @@ export class McpService {
           ),
         ),
     );
-
-    this.tool(
-      server,
-      'append_plan_note',
-      '기획서 하단에 진행 메모를 덧붙인다.',
-      { planId: z.string(), note: z.string() },
-      async (args) => {
-        const planId = args.planId as string;
-        const plan = await this.plans.get(planId);
-        const updated = await this.plans.update(planId, {
-          content: `${plan.content}\n\n---\n${args.note as string}`,
-        });
-        return json(updated);
-      },
-    );
   }
 }

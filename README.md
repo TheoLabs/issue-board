@@ -86,7 +86,7 @@ Claude가 MCP 툴을 순차 호출한다:
 | `list_projects` · `get_project_context` | read | 프로젝트 목록 / cwd 매칭 컨텍스트(앱·기획·이슈·도메인·와이어프레임·디자인) |
 | `get_plan` · `list_issues` · `get_issue` · `list_wireframes` · `get_wireframe` · `list_domains` · `get_domain` · `get_design` · `get_daily_activity` | read | 개별 산출물·활동 조회 (이슈는 `key` 포함) |
 | `create_project` · `create_application` · `create_plan` · `create_wireframe` · `create_domain` · `create_issue` · `create_design` | write | 생성 (앱·도메인·디자인은 upsert) |
-| `update_issue` · `update_issue_status` · `link_issue` · `update_plan` · `append_plan_note` · `snapshot_plan` | write | 갱신 · 연동 · 스냅샷 |
+| `update_issue` · `update_issue_status` · `link_issue` · `update_plan` · `snapshot_plan` | write | 갱신 · 연동 · 스냅샷 (기획 개정은 `update_plan`으로 본문 전체 교체) |
 | `delete_issue` · `delete_domain` · `delete_wireframe` | write | 삭제 (명시 요청 시에만) |
 
 > **애플리케이션과 이슈 키**: 한 프로젝트는 여러 앱(전달 표면)으로 나뉜다. `create_application`에
