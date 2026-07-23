@@ -308,6 +308,28 @@ export class McpService {
 
     this.tool(
       server,
+      'delete_project',
+      '프로젝트를 삭제한다. 소속 애플리케이션·기획·이슈·도메인·와이어프레임·디자인·활동로그가 모두 함께 삭제되며 되돌릴 수 없다. 반드시 사용자가 명시적으로 요청할 때만 사용하라. 생성/재생성 과정에서 자동으로 호출하지 마라.',
+      { projectId: z.string() },
+      async (args) => {
+        await this.projects.remove(args.projectId as string);
+        return json({ deleted: args.projectId as string });
+      },
+    );
+
+    this.tool(
+      server,
+      'delete_application',
+      '애플리케이션(전달 표면)을 삭제한다. 되돌릴 수 없다. 소속 기획·와이어프레임·이슈는 삭제되지 않고 앱 연결만 해제(applicationId=null)된다. 반드시 사용자가 명시적으로 요청할 때만 사용하라. 생성/재생성 과정에서 자동으로 호출하지 마라.',
+      { applicationId: z.string() },
+      async (args) => {
+        await this.applications.remove(args.applicationId as string);
+        return json({ deleted: args.applicationId as string });
+      },
+    );
+
+    this.tool(
+      server,
       'create_plan',
       '기획서(마크다운)를 프로젝트에 적재한다. 프로젝트에 여러 앱이 있으면 applicationId로 소속 앱을 지정한다.',
       {
