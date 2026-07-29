@@ -52,6 +52,8 @@ $ARGUMENTS
 
 - 핵심 엔티티/테이블을 도출해 컬럼 배열 `{name(camelCase), type, constraints?, description?}`로
   구성한다. 관계는 `constraints`에 `FK→대상엔티티`. 상태 엔티티면 `lifecycle`도 정의.
+- 🔴 **시간 컬럼**: `createdAt`·`updatedAt`·`deletedAt`만 `xxxAt`(datetime), 나머지 시간 컬럼은
+  **`xxxOn` + `type: "string"`** (예: `startedOn`) — [ib-domain](../ib-domain/SKILL.md)의 2-1 규칙.
 - `create_domain(projectId, name, description, columns, lifecycle?)` — status 생략(draft), 이름 upsert.
   **도메인은 앱 공유이므로 `applicationId`를 주지 않는다.**
 - **도메인 id ↔ 이름 매핑을 기억**해 4단계 `domainId` 연동에 쓴다.

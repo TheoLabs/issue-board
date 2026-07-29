@@ -27,7 +27,8 @@ $ARGUMENTS
 - **name**: 엔티티명 (예: `User`, `Race`, `Room`)
 - **description**: 이 엔티티가 무엇인지 한 줄
 - **columns**: 컬럼 배열
-  - `name`: **반드시 camelCase** (예: `userId`, `startedAt`, `passwordHash`). snake_case 금지.
+  - `name`: **반드시 camelCase** (예: `userId`, `startedOn`, `passwordHash`). snake_case 금지.
+    시간 컬럼은 아래 "시간 컬럼 규칙"을 따른다.
   - `type`: 예: `int`, `string`, `datetime`, `boolean`, `enum(...)`. **PK 타입은 기본 `int`**,
     FK는 참조 PK와 타입을 맞춘다.
   - `constraints`: 예: `PK`, `FK→User`, `NN`, `UQ`, `default: now()`. 복합 유니크 컬럼 참조도
@@ -36,7 +37,19 @@ $ARGUMENTS
 - **관계(FK)는 반드시 `FK→대상엔티티` 형식**(대상은 다른 도메인 `name`과 정확히 일치).
   대시보드가 이 표기를 파싱해 **ERD를 자동으로 그린다**. 표기가 어긋나면 관계선이 안 그려진다.
 
-### 2-1) 생명주기(상태 흐름) — 상태를 갖는 엔티티만
+### 2-1) 시간 컬럼 규칙 (🔴 필수)
+
+- `createdAt` · `updatedAt` · `deletedAt` **3개만 `xxxAt`** 이고, 타입은 `datetime`을 쓴다
+  (표준 감사 컬럼).
+- **그 밖의 모든 시간 기준 컬럼은 `xxxOn`** 으로 이름 짓고, **`type`은 반드시 `string`** 으로
+  명시한다.
+  - 예: `startedOn`(string), `endedOn`(string), `publishedOn`(string), `expiredOn`(string),
+    `paidOn`(string), `dueOn`(string).
+  - `startAt` · `expiresAt` · `start_date` 같은 표기 금지 — 위 3개 외에 `xxxAt`을 쓰지 마라.
+  - 위 3개를 제외한 시간 컬럼에 `datetime` · `timestamp` · `date` 타입을 쓰지 마라. 항상
+    `string`(ISO 8601 문자열)이다.
+
+### 2-2) 생명주기(상태 흐름) — 상태를 갖는 엔티티만
 
 상태 컬럼(`status`/`state`가 `enum(...)`)이 있으면 `lifecycle`을 정의한다. 대시보드가 mermaid
 상태 흐름도로 자동 렌더한다(문법 직접 쓰지 말고 구조만 채운다).
