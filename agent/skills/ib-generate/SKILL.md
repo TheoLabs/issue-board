@@ -31,7 +31,9 @@ $ARGUMENTS
 ## 1단계 — 기획
 
 - [plan-spec.md](../ib-shared/plan-spec.md)의 8섹션 템플릿으로 한국어 기획서를 작성한다.
-  아이디어가 **모호할 때만** `AskUserQuestion`으로 최대 3개(스코프/플랫폼/제약) 묻는다.
+  작성 전 `AskUserQuestion`으로 **최소 5개, 최대 10개**의 명확화 질문을 한다(스코프/플랫폼/
+  제약/권한구조/도메인규칙/외부연동/운영·리포팅 축). `AskUserQuestion`은 한 번에 4개까지
+  담기므로 **여러 번 나눠 호출**한다 — 상세는 [ib-plan](../ib-plan/SKILL.md) 1)절.
 - 적재: `create_project`(없으면) → `create_plan(projectId, title, content, applicationId)`.
 
 **▶ 체크포인트 1**: 기획 요약을 보여주고 `AskUserQuestion` — "① 다음 단계 / ② 수정 후 진행 /
