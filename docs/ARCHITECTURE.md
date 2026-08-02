@@ -9,11 +9,11 @@
 
 | # | 목표 | 설계에 미치는 영향 |
 |---|------|--------------------|
-| G1 | 기획/이슈 산출물을 **영속화**하고 사용자가 상호작용 | 로컬 DB(SQLite) + REST API |
+| G1 | 기획/이슈 산출물을 **영속화**하고 사용자가 상호작용 | MySQL(AWS RDS) + REST API |
 | G2 | 와이어프레임은 **조회 전용** (편집·상호작용 제외) | 정적 아티팩트로 저장, read-only 렌더 |
 | G3 | **최초 생성**은 터미널의 Claude Code 세션이 수행 | MCP write 툴로 DB 적재 (API 키·Agent SDK 불필요) |
 | G4 | **다른 Claude 세션**이 보드를 읽고 산출물을 자동 갱신 | 로컬 **MCP 서버** 노출 |
-| G5 | **무조건 로컬**에서 동작 | 외부 DB/클라우드 의존 금지, SQLite 파일 하나 |
+| G5 | 서버·웹·에이전트는 **로컬 실행**, 데이터는 **공유 DB** | 앱은 로컬 프로세스, 저장소는 AWS RDS(MySQL) 한 곳 |
 
 **핵심 설계 결정**: 이슈보드는 단순 CRUD 앱이 아니라 **"프로젝트 컨텍스트의 공유 허브"**다.
 생성 주체는 항상 **Claude Code 세션(사용자 구독)**이며, 웹 UI는 **순수 시각화 + CRUD 상호작용**만
@@ -44,13 +44,15 @@
 │   · 다른 프로젝트 세션            │  │ (read/write) │  │       │
 │                                  │  └──────────────┘  │       │
 │                                  │         │          │       │
+│                                  │  Prisma Client     │       │
 │                                  └─────────┼──────────┘       │
-│                                            ▼                  │
-│                                     ┌─────────────┐           │
-│                                     │  SQLite     │  G5       │
-│                                     │  (Prisma)   │           │
-│                                     └─────────────┘           │
-└─────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────┼─────────────────┘
+                                             │ TCP :3306
+                                             ▼
+                                     ┌─────────────────┐
+                                     │  AWS RDS        │  G5
+                                     │  MySQL 8        │
+                                     └─────────────────┘
 ```
 
 REST와 MCP는 **동일한 서비스 계층(Service Layer)**을 공유한다.
@@ -59,13 +61,23 @@ REST와 MCP는 **동일한 서비스 계층(Service Layer)**을 공유한다.
 
 ---
 
-## 3. 데이터 모델 (Prisma / SQLite)
+## 3. 데이터 모델 (Prisma / MySQL)
+
+아래는 설계 의도를 보이는 축약본이다. **실제 스키마의 단일 출처는
+`apps/server/prisma/schema.prisma`** — 컬럼 타입 지정(`@db.Text` 등)까지 그쪽에 있다.
+
+MySQL이라서 지켜야 하는 두 가지:
+- `String`의 기본 매핑은 `VARCHAR(191)`이다. 본문·JSON처럼 길어지는 값은
+  `@db.Text` / `@db.LongText`를 **명시**해야 잘리지 않는다.
+- `TEXT`/`LONGTEXT` 컬럼에는 **DEFAULT를 걸 수 없다**. JSON 문자열 필드
+  (`Domain.columns`, `Design.tokens`, `DailySummary.content`)는 DB 기본값 대신
+  서비스 계층이 항상 값을 채운다.
 
 ```prisma
 // schema.prisma
 datasource db {
-  provider = "sqlite"
-  url      = "file:./issue-board.db"
+  provider = "mysql"
+  url      = env("DATABASE_URL") // mysql://user:pw@host:3306/issue_board
 }
 
 model Project {
@@ -103,7 +115,7 @@ model Issue {
   body        String
   status      String   @default("todo")  // todo | in_progress | done | blocked
   priority    String   @default("medium")// low | medium | high
-  labels      String   @default("[]")    // JSON 문자열 (SQLite는 배열 미지원)
+  labels      String   @default("[]")    // JSON 문자열 (스칼라 배열 미지원)
   // 이슈 간 의존/분리 추적
   parentId    String?
   parent      Issue?   @relation("IssueTree", fields: [parentId], references: [id])
@@ -281,7 +293,7 @@ Claude Code 연동은 HTTP 방식이 `.mcp.json` 등록이 간단.
 |------|------|------|
 | 프론트 | React + Vite + TS (SWC) | 사용자 지정 |
 | 백엔드 | NestJS (:4000) | 사용자 지정 |
-| DB | **SQLite + Prisma** | 로컬 전용(G5), 서버 불필요, 파일 하나 |
+| DB | **MySQL(AWS RDS) + Prisma** | 여러 머신·세션이 같은 보드를 공유(G5), 관리형 백업 |
 | 실시간 | **SSE** | 단방향 스트리밍이면 충분, WS보다 단순 |
 | 생성/연동 | **MCP 서버** | 최초 생성(G3)·다른 세션 연동(G4) 모두 담당 |
 | 와이어프레임 | **HTML 조각 + iframe sandbox** | 조회 전용(G2), 생성 용이 |

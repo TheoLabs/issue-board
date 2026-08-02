@@ -13,7 +13,7 @@ import { dailyReportFileName } from '../api/dailyReport';
 
 /**
  * "일일 업무" 탭 — 날짜별 활동 이력.
- * 좌측: 활동이 있었던 날짜 목록(sqlite). 우측: 선택 날짜의 상세 + 드라이브 업로드.
+ * 좌측: 활동이 있었던 날짜 목록(활동 로그 기준). 우측: 선택 날짜의 상세 + 드라이브 업로드.
  * 날짜 이동(◀ ▶ · 달력)으로 활동이 없는 날짜도 조회할 수 있다.
  */
 export function DailyReport({

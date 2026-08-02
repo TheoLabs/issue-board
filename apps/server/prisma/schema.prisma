@@ -1,21 +1,29 @@
-// Issue Board — 로컬 전용 SQLite 스키마
+// Issue Board — MySQL(AWS RDS) 스키마
 // 상세 설계: docs/ARCHITECTURE.md §3
+//
+// MySQL 주의사항 두 가지가 컬럼 타입 선택을 지배한다.
+//  1) String의 기본 매핑은 VARCHAR(191)이다. 본문·JSON처럼 길어질 수 있는 값은
+//     반드시 @db.Text / @db.LongText 를 명시한다(안 하면 191자에서 잘린다).
+//  2) TEXT/LONGTEXT 컬럼에는 DEFAULT를 걸 수 없다. 그래서 길이가 긴 JSON 문자열 필드
+//     (Domain.columns, Design.tokens, DailySummary.content)는 DB 기본값 없이 두고
+//     서비스 계층이 항상 값을 채워 넣는다.
+// 인덱스에 참여하는 컬럼은 VARCHAR로 남겨 키 길이 제한(InnoDB 3072바이트)을 지킨다.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 model Project {
   id          String   @id @default(cuid())
   name        String
-  description String?
+  description String?  @db.Text
   // 외부 Claude 세션이 cwd로 프로젝트를 매칭하기 위한 로컬 경로
-  repoPath    String?  @unique
+  repoPath    String?  @unique @db.VarChar(500)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -39,7 +47,7 @@ model Application {
   // 안정적 식별 키 (kebab-case, 예: chuno-app, backoffice). 프로젝트 내 유일.
   key         String
   name        String
-  description String?
+  description String?  @db.Text
   // 앱 스위처 표시 순서. 낮을수록 앞.
   sequence    Int      @default(0)
   // 이슈 키 접두사 (대문자, 예: CH). 프로젝트 내 유일. 이슈 키 = "<issuePrefix>-<number>".
@@ -70,9 +78,9 @@ model ActivityLog {
   // created | updated | status_changed | snapshot | linked | deleted
   action     String
   // 사람이 읽을 대상 이름/제목 (스냅샷 — 대상이 나중에 삭제돼도 남는다)
-  title      String
+  title      String   @db.VarChar(500)
   // 변경 상세 JSON: { field: { from, to } }. 없으면 null
-  changes    String?
+  changes    String?  @db.Text
   // user(웹) | agent(MCP/Claude)
   source     String   @default("agent")
   createdAt  DateTime @default(now())
@@ -90,14 +98,15 @@ model DailySummary {
   // 대상 날짜 (요청 타임존 기준 YYYY-MM-DD)
   date      String
   timezone  String   @default("Asia/Seoul")
-  // Claude가 생성한 서술형 마크다운 본문 (status=ready일 때만 유효)
-  content   String   @default("")
+  // Claude가 생성한 서술형 마크다운 본문 (status=ready일 때만 유효).
+  // TEXT라 DB 기본값이 없다 — 생성 시 서비스가 항상 채운다(pending이면 빈 문자열).
+  content   String   @db.Text
   // 사용 모델(claude CLI 기본값이면 null일 수 있음)
   model     String?
   // pending(생성 중) | ready(완료) | error(실패)
   status    String   @default("ready")
   // status=error일 때 원인 메시지
-  error     String?
+  error     String?  @db.Text
   // 요약 시점 활동 건수 (0이면 요약 생략 대상)
   activityCount Int  @default(0)
   // manual(버튼) | schedule(cron)
@@ -114,8 +123,8 @@ model Design {
   id        String   @id @default(cuid())
   projectId String   @unique
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  // 디자인 토큰 JSON (DesignTokens)
-  tokens    String   @default("{}")
+  // 디자인 토큰 JSON (DesignTokens). TEXT라 DB 기본값 없음 — 서비스가 항상 채운다.
+  tokens    String   @db.Text
   status    String   @default("draft") // draft | approved | archived
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -125,9 +134,9 @@ model Plan {
   id        String   @id @default(cuid())
   projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title     String
+  title     String   @db.VarChar(500)
   // 마크다운 기획서 본문 (사용자 편집 가능)
-  content   String
+  content   String   @db.LongText
   status    String   @default("draft") // draft | approved | archived
   version   Int      @default(1) // 낙관적 잠금 + 현재 버전 번호
   // 소속 애플리케이션(전달 표면). 미분류는 null.
@@ -150,8 +159,8 @@ model PlanVersion {
   planId    String
   plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
   version   Int // 마일스톤 번호 (1,2,3…) — Plan.version(편집 카운터)과는 별개
-  title     String
-  content   String
+  title     String   @db.VarChar(500)
+  content   String   @db.LongText
   status    String
   label     String? // 스냅샷 사유/이름 (예: "승인", "MVP 범위 확정")
   createdAt DateTime @default(now())
@@ -164,8 +173,8 @@ model Issue {
   id        String   @id @default(cuid())
   projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title     String
-  body      String
+  title     String   @db.VarChar(500)
+  body      String   @db.Text
   // 에픽(상위) vs 태스크(하위) 명시 구분
   type      String   @default("task") // epic | task
   status    String   @default("todo") // todo | in_progress | done | blocked
@@ -173,7 +182,8 @@ model Issue {
   priority  String   @default("medium") // low | medium | high
   value     String   @default("medium") // 가치 low | medium | high
   effort    String   @default("medium") // 노력 low | medium | high
-  labels    String   @default("[]") // JSON 문자열 (SQLite는 배열 미지원)
+  // JSON 문자열 (스칼라 배열 대신). 기본값을 유지하려고 TEXT가 아닌 VARCHAR로 둔다.
+  labels    String   @default("[]") @db.VarChar(1000)
   // 이슈 트리 (기획 → 이슈 분리)
   parentId  String?
   parent    Issue?   @relation("IssueTree", fields: [parentId], references: [id], onDelete: SetNull)
@@ -209,11 +219,12 @@ model Domain {
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   name        String
-  description String?
+  description String?  @db.Text
   // 컬럼 정의 배열 JSON: [{ name, type, constraints?, description? }]
-  columns     String   @default("[]")
+  // TEXT라 DB 기본값 없음 — 서비스가 항상 채운다(없으면 "[]").
+  columns     String   @db.Text
   // 상태 생명주기 JSON: { states?: [{name,description?}], transitions: [{from,to,on?}] }. 없으면 null
-  lifecycle   String?
+  lifecycle   String?  @db.Text
   // 첫 설계는 초안. draft | approved | archived
   status      String   @default("draft")
   createdAt   DateTime @default(now())
@@ -233,7 +244,7 @@ model Wireframe {
   name      String
   // 조회 전용 (편집 대상 아님) — html | excalidraw | mermaid | svg
   format    String   @default("html")
-  content   String
+  content   String   @db.LongText
   // IA(정보구조) 순서. 왼쪽 네비가 오름차순 정렬. 낮을수록 위.
   sequence  Int      @default(0)
   // 같은 name의 재생성마다 증가. 삭제 대신 이력으로 보존한다.

@@ -3,7 +3,7 @@
  * Prisma 스키마(apps/server/prisma/schema.prisma)와 형태를 맞춘다.
  */
 
-// ─── Enums (SQLite에는 enum이 없어 문자열 유니온으로 표현) ───
+// ─── Enums (DB에는 문자열 컬럼으로 저장 — 타입은 문자열 유니온으로 표현) ───
 
 export const PLAN_STATUS = ['draft', 'approved', 'archived'] as const;
 export type PlanStatus = (typeof PLAN_STATUS)[number];

@@ -1,15 +1,15 @@
 # Issue Board
 
 Claude 에이전트가 **기획 · 와이어프레임 · 도메인 · 이슈 · 디자인 시스템**을 생성하고,
-그 산출물을 로컬 대시보드로 시각화 · 관리하는 웹 애플리케이션. 모든 것이 **로컬**에서
-동작한다.
+그 산출물을 대시보드로 시각화 · 관리하는 웹 애플리케이션. 서버·웹은 로컬에서 돌고,
+데이터는 **AWS RDS의 MySQL**에 적재된다.
 
 > 아키텍처 상세: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ## 구조 (pnpm workspace)
 
 ```
-apps/server   NestJS (:4000) — REST + SSE + MCP 서버, Prisma/SQLite
+apps/server   NestJS (:4000) — REST + SSE + MCP 서버, Prisma/MySQL(AWS RDS)
 apps/web      React + Vite + TS(SWC) — 대시보드 (:5173)
 packages/shared  web ↔ server 공유 타입 (dual ESM/CJS 빌드)
 ```
@@ -22,7 +22,10 @@ pnpm install
 # 공유 타입 빌드 (server/web가 참조)
 pnpm --filter @issue-board/shared build
 
-# DB 생성 + 마이그레이션
+# DB 접속 정보 설정 후 마이그레이션
+#   .env 의 DATABASE_URL 을 실제 RDS 접속 문자열로 바꾼다.
+#   대상 스키마(데이터베이스)는 미리 만들어져 있어야 한다:
+#     CREATE DATABASE issue_board CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 cd apps/server && cp .env.example .env && pnpm db:migrate && cd -
 ```
 

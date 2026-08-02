@@ -1,5 +1,9 @@
 // schema.prisma가 바뀌면 자동으로 `prisma migrate dev`를 실행해 DB/Client를 동기화한다.
-// 로컬 개발 전용 — 서버 dev 프로세스와 함께 병렬로 돈다(package.json의 dev 스크립트).
+// 개발 편의용 — 서버 dev 프로세스와 함께 병렬로 돈다(package.json의 dev 스크립트).
+//
+// ⚠️ 저장소가 공유 MySQL(RDS)이므로 이 워처는 **원격 DB에** 마이그레이션을 즉시 적용한다.
+// 여럿이 붙은 RDS를 쓴다면 `pnpm dev:server`(워처 없음)로 띄우고 마이그레이션은
+// `pnpm db:migrate`로 의도적으로 돌리는 편이 안전하다.
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, watch } from 'node:fs';
