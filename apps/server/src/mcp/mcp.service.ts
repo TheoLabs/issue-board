@@ -552,7 +552,12 @@ export class McpService {
           .string()
           .optional()
           .describe('부모 에픽의 id(cuid) 또는 사람 키(예: CH-1)'),
-        planId: z.string().optional().describe('파생된 기획의 id'),
+        planId: z
+          .string()
+          .optional()
+          .describe(
+            '파생된 기획의 id. 기획 확정 가드가 예외 없이 적용되므로 사실상 필수 — 연결하지 않으면 이 이슈는 in_progress/done으로 전이할 수 없다.',
+          ),
         screenId: z
           .string()
           .optional()
@@ -585,23 +590,20 @@ export class McpService {
     this.tool(
       server,
       'update_issue_status',
-      '이슈 상태를 전이한다 (todo→in_progress→done 등). 코딩 진행에 따라 호출. ⚠️ 기획 확정 가드: 이슈의 기획이 approved가 아니면 in_progress/done 전이가 거부된다 — 확정된 기획의 이슈만 착수(코드 작성)할 수 있다.',
+      '이슈 상태를 전이한다 (todo→in_progress→done 등). 코딩 진행에 따라 호출. ⚠️ 기획 확정 가드(예외 없음): 이슈의 기획이 approved가 아니거나 기획이 아예 연결돼 있지 않으면 in_progress/done 전이가 거부된다 — 확정된 기획의 이슈만 착수(코드 작성)할 수 있다.',
       {
         issueId: z
           .string()
           .describe('이슈 id(cuid) 또는 사람 키(예: CH-12) 둘 다 가능'),
         status: z.enum(ISSUE_STATUS),
       },
-      async (args) => {
-        const status = args.status as IssueStatus;
-        // 기획 확정 가드: 미승인 기획의 이슈는 착수/완료할 수 없다.
-        if (status === 'in_progress' || status === 'done') {
-          await this.issues.assertPlanApproved(args.issueId as string);
-        }
-        return json(
-          await this.issues.update(args.issueId as string, { status }),
-        );
-      },
+      // 기획 확정 가드는 issues.update가 전 경로 공통으로 강제한다.
+      async (args) =>
+        json(
+          await this.issues.update(args.issueId as string, {
+            status: args.status as IssueStatus,
+          }),
+        ),
     );
 
     this.tool(

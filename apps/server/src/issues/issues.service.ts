@@ -61,25 +61,48 @@ export class IssuesService {
 
   /**
    * 기획 확정 가드: 이 이슈의 기획이 approved가 아니면 착수(코드 작성)를 막는다.
-   * 착수/완료 상태 전이 전에 호출한다. 기획 미연결(planId 없음) 이슈는 판정 불가라 통과.
+   * 착수/완료 상태 전이 전에 호출한다. **예외 없음** — 기획이 연결돼 있지 않거나
+   * 연결된 기획을 찾을 수 없으면 확정 여부를 판정할 근거가 없으므로 통과가 아니라 차단한다.
    * (기획이 확정돼야 개발이 이뤄지는 프로세스를 서버에서 강제하는 지점.)
    */
   async assertPlanApproved(ref: string): Promise<void> {
     const id = await this.resolveId(ref);
     const issue = await this.prisma.issue.findUnique({
       where: { id },
-      select: { planId: true, key: true, title: true },
+      select: { id: true, planId: true, key: true },
     });
     if (!issue) throw new NotFoundException(`Issue ${ref} not found`);
-    if (!issue.planId) return; // 기획 미연결 — 가드 대상 아님
+    await this.assertPlanApprovedFor(issue);
+  }
+
+  /** 이미 읽어둔 이슈 행으로 가드를 판정한다 (재조회 없이). */
+  private async assertPlanApprovedFor(issue: {
+    id: string;
+    planId: string | null;
+    key: string | null;
+  }): Promise<void> {
+    const label = issue.key ?? issue.id;
+    if (!issue.planId) {
+      throw new ForbiddenException(
+        `이슈(${label})에 기획이 연결돼 있지 않아 착수할 수 없습니다. ` +
+          `link_issue(issueId, planId=<기획 id>)로 파생 기획을 연결하고, ` +
+          `그 기획을 확정(approved)한 뒤 다시 진행하세요.`,
+      );
+    }
     const plan = await this.prisma.plan.findUnique({
       where: { id: issue.planId },
       select: { status: true, title: true },
     });
-    if (plan && plan.status !== 'approved') {
+    if (!plan) {
+      throw new ForbiddenException(
+        `이슈(${label})에 연결된 기획(${issue.planId})을 찾을 수 없습니다. ` +
+          `link_issue로 유효한 기획을 다시 연결한 뒤 진행하세요.`,
+      );
+    }
+    if (plan.status !== 'approved') {
       throw new ForbiddenException(
         `기획 "${plan.title}"이(가) 아직 확정(approved)되지 않았습니다 (현재: ${plan.status}). ` +
-          `확정되지 않은 기획의 이슈(${issue.key ?? id})는 착수(코드 작성)할 수 없습니다. ` +
+          `확정되지 않은 기획의 이슈(${label})는 착수(코드 작성)할 수 없습니다. ` +
           `기획을 검토·확정(approved)한 뒤 다시 진행하세요.`,
       );
     }
@@ -206,6 +229,13 @@ export class IssuesService {
       throw new ConflictException(
         `Version conflict: expected ${expectedVersion}, got ${current.version}`,
       );
+    }
+    // 기획 확정 가드(예외 없음). MCP든 대시보드(REST)든 여기 한 곳에서 동일하게 막힌다.
+    if (
+      (dto.status === 'in_progress' || dto.status === 'done') &&
+      dto.status !== current.status
+    ) {
+      await this.assertPlanApprovedFor(current);
     }
     // value/effort가 바뀌면 우선순위 재산출 (명시 priority가 오면 그걸 우선)
     let priority = dto.priority;

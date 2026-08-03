@@ -2280,3 +2280,39 @@ code {
   padding: 1px 5px;
   border-radius: 4px;
 }
+
+/* 서버가 거부한 동작의 사유 알림 (기획 확정 가드 등). 화면 상단 중앙에 떠 있다. */
+.notice {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: min(680px, calc(100vw - 32px));
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--prio-high);
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notice-close {
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 0;
+}
+
+.notice-close:hover {
+  color: var(--text);
+}

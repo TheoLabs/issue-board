@@ -89,6 +89,8 @@ export function App() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [design, setDesign] = useState<Design | null>(null);
   const [activeDomainId, setActiveDomainId] = useState<string | null>(null);
+  // 서버가 거부한 동작의 사유를 띄우는 알림 (기획 확정 가드 등)
+  const [notice, setNotice] = useState<string | null>(null);
   const [domainView, setDomainView] = useState<'table' | 'erd'>('table');
   const [issueView, setIssueView] = useState<'kanban' | 'table'>('table');
   // 라우팅: 탭·기획 상세는 URL 경로, 이슈 상세 드로어는 ?issue= 쿼리에서 파생
@@ -272,10 +274,16 @@ export function App() {
   }, [location.pathname, navigate, tab]);
 
   // selectedIssue는 issues에서 파생되므로 setIssues만 하면 드로어도 자동 갱신됨
+  // 착수/완료 전이는 서버의 기획 확정 가드에 막힐 수 있다(403) — 사유를 그대로 보여준다.
   const changeStatus = useCallback((issue: Issue, status: IssueStatus) => {
-    api.updateIssue(issue.id, { status }, issue.version).then((updated) => {
-      setIssues((cur) => cur.map((i) => (i.id === updated.id ? updated : i)));
-    });
+    api
+      .updateIssue(issue.id, { status }, issue.version)
+      .then((updated) => {
+        setIssues((cur) => cur.map((i) => (i.id === updated.id ? updated : i)));
+      })
+      .catch((e: unknown) => {
+        setNotice(e instanceof Error ? e.message : String(e));
+      });
   }, []);
 
   const changeLevel = useCallback(
@@ -405,6 +413,18 @@ export function App() {
 
   return (
     <div className="app">
+      {notice && (
+        <div className="notice" role="alert">
+          <span>{notice}</span>
+          <button
+            className="notice-close"
+            aria-label="알림 닫기"
+            onClick={() => setNotice(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <aside className="sidebar">
         <h1>Issue Board</h1>
         <nav>

@@ -26,7 +26,20 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(`${res.status} ${res.statusText}: ${text}`);
+    // 서버(Nest)는 { message, error, statusCode } 형태로 준다. 사람에게 보여줄 수 있게
+    // message만 꺼내고, 아니면 원문을 그대로 쓴다.
+    let message = text;
+    try {
+      const body = JSON.parse(text) as { message?: string | string[] };
+      if (body.message) {
+        message = Array.isArray(body.message)
+          ? body.message.join(', ')
+          : body.message;
+      }
+    } catch {
+      /* JSON이 아니면 원문 사용 */
+    }
+    throw new Error(message || `${res.status} ${res.statusText}`);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
