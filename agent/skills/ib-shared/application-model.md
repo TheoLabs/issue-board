@@ -49,5 +49,5 @@ create_application(projectId, key, name, description, issuePrefix)
 - MCP read 응답(`get_project_context` · `list_issues` · `get_issue`)은 각 이슈에 `key`를 포함한다.
 - 트리 요약 · 보고 · 대화에서 이슈를 **cuid 대신 키로** 부른다 (`CH-12 소셜 로그인`).
 - 변이 툴(`get_issue` · `update_issue` · `update_issue_status` · `link_issue`)과 `create_issue`의
-  `parentKey`는 **cuid 또는 사람 키(`^[A-Z]+-\d+$`) 어느 쪽으로도** 이슈를 지칭할 수 있다.
+  `parentId`는 **cuid 또는 사람 키(`^[A-Z]+-\d+$`) 어느 쪽으로도** 이슈를 지칭할 수 있다.
   키는 프로젝트 컨텍스트 안에서 해석된다.

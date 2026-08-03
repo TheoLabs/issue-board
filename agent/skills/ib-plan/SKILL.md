@@ -59,7 +59,7 @@ $ARGUMENTS
 ### 5) 보고
 
 생성된 `projectId`·`planId`를 출력하고 안내한다: "기획을 대시보드(http://localhost:5173)에서
-검토·수정한 뒤 `/ib-wireframe` → `/ib-issues` 순으로 진행하세요."
+검토·수정한 뒤 `/ib-domain` → `/ib-wireframe` → `/ib-issues` 순으로 진행하세요."
 
 ## 주의
 

@@ -19,10 +19,11 @@ user-invocable: false
   완료조건 체크박스 · "코드 구현 금지". **어떤 ib-* 스킬이든 적재 전에 읽는다.**
 - [application-model.md](application-model.md) — 애플리케이션(전달 표면) 모델과 **이슈 키
   (`CH-12`) 규칙**. plan · wireframe · issue를 적재하기 전에 읽는다.
-- [plan-spec.md](plan-spec.md) — 기획서 8섹션 마크다운 템플릿. `ib-plan` · `ib-generate` 1단계.
+- [plan-spec.md](plan-spec.md) — 기획서 8섹션 마크다운 템플릿 + 언어 규칙(유비쿼터스 언어).
+  `ib-plan` · `ib-generate` 1단계.
 - [issue-spec.md](issue-spec.md) — 이슈 정규화 규격(제목 · 본문 · value/effort · 연동).
   `ib-issues` · `ib-generate` 4단계 · `ib-progress`.
 - [wireframe-style.md](wireframe-style.md) — 와이어프레임 공통 스타일 CSS · 구조 컨벤션.
-  `ib-wireframe` · `ib-generate` 2단계.
+  `ib-wireframe` · `ib-generate` 3단계.
 - [daily-report.md](daily-report.md) — 일일 업무 보고서 출력 포맷 계약. `ib-daily`와 앱 내부
   'AI 요약하기' / cron이 공유.

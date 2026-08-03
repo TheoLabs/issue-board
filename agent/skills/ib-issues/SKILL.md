@@ -1,6 +1,6 @@
 ---
 name: ib-issues
-description: 기획을 이슈 트리로 분리해 적재한다 (3단계)
+description: 기획을 이슈 트리로 분리해 적재한다 (4단계)
 ---
 
 너는 테크리드다. 보드의 기획서를 읽어 **구현 가능한 이슈 트리**로 분해하고 issue-board에
@@ -35,7 +35,7 @@ description: 기획을 이슈 트리로 분리해 적재한다 (3단계)
 ### 3) 보드에 적재 (순서 중요)
 
 issue-spec.md의 "적재 순서"대로: **에픽을 먼저** `create_issue(..., type="epic", applicationId)`로
-만들어 각 `id`·`key`를 확보 → 하위 이슈를 `type="task"`, `parentId`(또는 `parentKey`)로 연결한다.
+만들어 각 `id`·`key`를 확보 → 하위 이슈를 `type="task"`, `parentId`(cuid 또는 키 `CH-1`)로 연결한다.
 
 ### 4) 보고
 

@@ -75,7 +75,7 @@ pnpm dev:web
 
 Claude가 MCP 툴을 순차 호출한다:
 `create_project(repoPath=cwd)` → `create_application`(전달 표면·이슈 키 접두사 확보) →
-`create_plan` → `create_wireframe` × N → `create_domain` × N → `create_issue` × N
+`create_plan` → `create_domain` × N → `create_wireframe` × N → `create_issue` × N
 (에픽 먼저 → 태스크). **이슈는 앱 접두사 + 순번으로 사람이 읽는 키**(예: `CH-12`)를 받는다.
 
 이후 다른 세션(다른 프로젝트 작업 중)도 같은 MCP로 붙어 `get_project_context(cwd)`로

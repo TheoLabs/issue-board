@@ -59,7 +59,9 @@
 
 각 이슈를 만들 때 파생 출처를 **구조적으로 연결**한다:
 
-- `planId`: 파생된 기획의 id. 보통 모든 이슈가 같은 기획을 가리킨다.
+- `planId`: 파생된 기획의 id — **필수**. 보통 모든 이슈가 같은 기획을 가리킨다.
+  🔴 기획이 연결되지 않은 이슈는 **착수(`in_progress`)·완료(`done`) 전이를 서버가 거부**한다
+  (기획 확정 가드는 예외가 없다). 작업 중 발견한 이슈를 급히 등록할 때도 반드시 채운다.
 - `screenId`: 이슈가 다루는 화면이 있으면 와이어프레임의 해당 `data-screen` id (예: `race-detail`).
   UI와 무관한 이슈(인프라·백엔드)면 생략.
 - `domainId`: 이슈가 특정 도메인(엔티티/테이블)을 다루면 그 도메인 id. 무관하면 생략.
@@ -70,5 +72,5 @@
 
 1. **에픽을 먼저 생성**: `create_issue(projectId, title, body, type="epic", value, effort,
    labels, planId, screenId?, domainId?, applicationId)`. 반환된 각 에픽의 `id`·`key`를 기억한다.
-2. **하위 이슈**를 생성하며 `type="task"`, `parentId`(또는 `parentKey`)에 해당 에픽을 넣고
+2. **하위 이슈**를 생성하며 `type="task"`, `parentId`에 해당 에픽의 id(cuid) 또는 키(`CH-1`)를 넣고
    `planId`·`screenId`·`domainId`·`applicationId`를 채운다.

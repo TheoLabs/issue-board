@@ -30,7 +30,8 @@ $ARGUMENTS
 - **neutral**(무드에 맞춰): `bg`·`surface`·`surface2`·`border`·`text`·`muted`. 순수 회색보다
   메인 색을 아주 살짝 섞은 뉴트럴이 세련됨.
 - **semantic**: `success`(초록)·`warning`(앰버)·`danger`(레드)·`info`(블루/메인 계열). 톤을 맞춘다.
-- **typography**: `fontHeading`/`fontBody`(시스템 폰트 스택 권장) · `typeScale`(Display·H1·H2·H3·
+- **타이포그래피** — `typography` 같은 묶음 키는 없다. **`tokens` 최상위에 평평하게** 넣는다:
+  `fontHeading`/`fontBody`(시스템 폰트 스택 권장) · `typeScale`(Display·H1·H2·H3·
   Body·Caption 각 `{name,size,weight,lineHeight}`)
 - **spacing**: 4 기반 `[4,8,12,16,24,32,48]`
 - **radius**: `{sm,md,lg,full}`(예: 6/10/16/999) — 무드가 각지면 작게, 부드러우면 크게
