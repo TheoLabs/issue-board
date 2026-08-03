@@ -25,3 +25,6 @@ apps/server/prisma/dumps/
 # logs
 *.log
 npm-debug.log*
+
+# db
+issue-board.db
