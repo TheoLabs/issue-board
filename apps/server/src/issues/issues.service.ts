@@ -16,13 +16,34 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActivityService } from '../activity/activity.service';
 import { toIssue } from '../common/mappers';
 import { derivePrefix, formatKey, isIssueKey } from '../common/issue-key';
+import { WireframesService } from '../wireframes/wireframes.service';
 
 @Injectable()
 export class IssuesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activity: ActivityService,
+    private readonly wireframes: WireframesService,
   ) {}
+
+  /**
+   * screenId는 FK가 아니라 와이어프레임 HTML의 `data-screen` 값이다.
+   * 오타·삭제된 화면을 가리키면 대시보드의 "화면 보기"가 조용히 죽으므로 적재 시 막는다.
+   */
+  private async assertScreenExists(
+    projectId: string,
+    screenId: string,
+  ): Promise<void> {
+    const valid = await this.wireframes.validScreenIds(projectId);
+    if (valid.has(screenId)) return;
+    const known = [...valid];
+    throw new NotFoundException(
+      `화면 "${screenId}"을(를) 찾을 수 없습니다. ` +
+        (known.length
+          ? `이 프로젝트에서 쓸 수 있는 화면 id: ${known.join(', ')}.`
+          : `아직 와이어프레임이 없습니다 — /ib-wireframe으로 화면을 먼저 만들거나 screenId를 생략하세요.`),
+    );
+  }
 
   async listByProject(projectId: string): Promise<Issue[]> {
     const rows = await this.prisma.issue.findMany({
@@ -109,6 +130,7 @@ export class IssuesService {
   }
 
   async create(projectId: string, dto: CreateIssueDto): Promise<Issue> {
+    if (dto.screenId) await this.assertScreenExists(projectId, dto.screenId);
     const value = dto.value ?? 'medium';
     const effort = dto.effort ?? 'medium';
     // 우선순위는 value/effort에서 산출. 둘 다 없고 priority만 주면 그대로 존중.
@@ -229,6 +251,10 @@ export class IssuesService {
       throw new ConflictException(
         `Version conflict: expected ${expectedVersion}, got ${current.version}`,
       );
+    }
+    // 화면 연동을 새로 넣거나 바꿀 때만 검증한다 (link_issue도 이 경로로 들어온다).
+    if (dto.screenId && dto.screenId !== current.screenId) {
+      await this.assertScreenExists(current.projectId, dto.screenId);
     }
     // 기획 확정 가드(예외 없음). MCP든 대시보드(REST)든 여기 한 곳에서 동일하게 막힌다.
     if (

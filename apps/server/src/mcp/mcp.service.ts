@@ -27,7 +27,7 @@ import { WireframesService } from '../wireframes/wireframes.service';
 import { DomainsService } from '../domains/domains.service';
 import { DesignsService } from '../designs/designs.service';
 import { ActivityService } from '../activity/activity.service';
-import type { DesignTokens } from '@issue-board/shared';
+import type { DesignTokens, Wireframe } from '@issue-board/shared';
 
 interface ToolResult {
   content: Array<{ type: 'text'; text: string }>;
@@ -43,6 +43,14 @@ type LooseToolFn = (
 const json = (data: unknown): ToolResult => ({
   content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
 });
+
+/**
+ * 와이어프레임 목록에서 HTML 본문을 뺀다.
+ * 화면 하나가 수 KB라 전부 실으면 컨텍스트를 통째로 잡아먹는다. 에이전트가 필요한 건
+ * 화면 id(screens)뿐이고, 본문은 get_wireframe으로 따로 읽는다.
+ */
+const omitContent = (wireframes: Wireframe[]) =>
+  wireframes.map(({ content: _content, ...rest }) => rest);
 
 /**
  * 이슈보드를 로컬 MCP 서버로 노출한다. (docs/ARCHITECTURE.md §6)
@@ -126,15 +134,18 @@ export class McpService {
         // 기획 확정 가드 신호: 승인되지 않은 기획의 이슈는 착수(코드 작성) 금지.
         const approvedPlans = plans.filter((p) => p.status === 'approved');
         const unapprovedPlans = plans.filter((p) => p.status !== 'approved');
+        // 기획 미연결 이슈도 착수할 수 없다 — 확정 여부를 판정할 근거가 없기 때문.
+        const issuesWithoutPlan = issues.filter((i) => !i.planId);
         const guard = {
           codeReady: approvedPlans.length > 0,
-          rule: '기획이 approved가 아닌 이슈는 착수(코드 작성)하지 마라. unapprovedPlans에 속한(planId가 일치하는) 이슈는 update_issue_status(in_progress/done)를 서버가 거부한다. 확정이 필요하면 사용자에게 알려라.',
+          rule: '다음 두 경우의 이슈는 착수(코드 작성)하지 마라 — ① unapprovedPlans에 속한(planId가 일치하는) 이슈, ② issuesWithoutPlan(기획이 아예 연결되지 않은 이슈). 둘 다 update_issue_status(in_progress/done)를 서버가 거부한다. ②는 link_issue로 기획을 연결하면 풀린다. 확정이나 연결이 필요하면 사용자에게 알려라.',
           approvedPlanIds: approvedPlans.map((p) => p.id),
           unapprovedPlans: unapprovedPlans.map((p) => ({
             id: p.id,
             title: p.title,
             status: p.status,
           })),
+          issuesWithoutPlan: issuesWithoutPlan.map((i) => i.key ?? i.id),
         };
         return json({
           matched: true,
@@ -142,7 +153,9 @@ export class McpService {
           applications,
           plans,
           issues,
-          wireframes,
+          // HTML 본문은 뺀다 (화면 하나가 수 KB라 컨텍스트를 통째로 잡아먹는다).
+          // 이슈 연동에 필요한 건 screens뿐이고, 본문은 get_wireframe으로 따로 읽는다.
+          wireframes: omitContent(wireframes),
           domains,
           design,
           guard,
@@ -182,10 +195,14 @@ export class McpService {
     this.tool(
       server,
       'list_wireframes',
-      '프로젝트의 와이어프레임 목록을 반환한다 (IA 순서/버전 포함, 조회 전용).',
+      '프로젝트의 와이어프레임 목록을 반환한다 (IA 순서/버전/screens 포함, 조회 전용). 응답에는 HTML 본문(content)이 빠져 있다 — screens가 그 화면의 data-screen id 목록이고, 이슈의 screenId로 그대로 쓰면 된다. 본문이 필요하면 get_wireframe.',
       { projectId: z.string() },
       async (args) =>
-        json(await this.wireframes.listByProject(args.projectId as string)),
+        json(
+          omitContent(
+            await this.wireframes.listByProject(args.projectId as string),
+          ),
+        ),
     );
 
     this.tool(
@@ -561,7 +578,9 @@ export class McpService {
         screenId: z
           .string()
           .optional()
-          .describe('관련 화면 — 클릭스루 프로토타입의 data-screen 값'),
+          .describe(
+            '관련 화면 — 와이어프레임의 data-screen 값. 쓸 수 있는 값은 list_wireframes/get_project_context 응답의 screens 목록뿐이며, 없는 id를 주면 거부된다.',
+          ),
         domainId: z.string().optional().describe('관련 도메인의 id'),
         applicationId: z
           .string()

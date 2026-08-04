@@ -146,6 +146,7 @@ export function toWireframe(row: PrismaWireframe): Wireframe {
     name: row.name,
     format: row.format as WireframeFormat,
     content: row.content,
+    screens: parseScreens(row.screens),
     sequence: row.sequence,
     version: row.version,
     applicationId: row.applicationId,
@@ -154,6 +155,17 @@ export function toWireframe(row: PrismaWireframe): Wireframe {
 }
 
 function parseLabels(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** 와이어프레임의 screens(JSON 문자열)를 배열로. 깨져 있으면 빈 배열. */
+export function parseScreens(raw: string | null | undefined): string[] {
+  if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.map(String) : [];

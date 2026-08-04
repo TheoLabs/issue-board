@@ -2,7 +2,16 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateWireframeDto, Wireframe } from '@issue-board/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityService } from '../activity/activity.service';
-import { toWireframe } from '../common/mappers';
+import { parseScreens, toWireframe } from '../common/mappers';
+
+/** content에서 `data-screen="..."` 값을 순서대로(중복 제거) 뽑는다. */
+export function extractScreenIds(content: string): string[] {
+  const ids = new Set<string>();
+  const re = /data-screen\s*=\s*["']([^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(content)) !== null) ids.add(m[1].trim());
+  return [...ids].filter(Boolean);
+}
 
 /**
  * 와이어프레임은 조회 전용(G2). 편집(update) 없음.
@@ -29,6 +38,27 @@ export class WireframesService {
     const row = await this.prisma.wireframe.findUnique({ where: { id } });
     if (!row) throw new NotFoundException(`Wireframe ${id} not found`);
     return toWireframe(row);
+  }
+
+  /**
+   * 이슈의 `screenId`로 쓸 수 있는 화면 id 집합.
+   * **name별 최신 버전만** 본다 — 대시보드의 "화면 보기"가 화면을 찾는 기준과 같다.
+   * (구버전에만 있고 최신에서 사라진 화면은 더 이상 유효한 링크 대상이 아니다.)
+   */
+  async validScreenIds(projectId: string): Promise<Set<string>> {
+    const rows = await this.prisma.wireframe.findMany({
+      where: { projectId },
+      orderBy: [{ name: 'asc' }, { version: 'desc' }],
+      select: { name: true, screens: true },
+    });
+    const seenNames = new Set<string>();
+    const ids = new Set<string>();
+    for (const row of rows) {
+      if (seenNames.has(row.name)) continue;
+      seenNames.add(row.name);
+      for (const id of parseScreens(row.screens)) ids.add(id);
+    }
+    return ids;
   }
 
   async create(projectId: string, dto: CreateWireframeDto): Promise<Wireframe> {
@@ -60,6 +90,7 @@ export class WireframesService {
         name: dto.name,
         format: dto.format ?? 'html',
         content: dto.content,
+        screens: JSON.stringify(extractScreenIds(dto.content)),
         sequence,
         version,
         // 명시값 우선 → 같은 name 재생성 시 이전 앱 상속 → 미분류(null)

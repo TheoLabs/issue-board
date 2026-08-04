@@ -258,6 +258,8 @@ export interface Wireframe {
   name: string;
   format: WireframeFormat;
   content: string;
+  /** content에서 뽑아낸 data-screen id 목록. 이슈 screenId 연동의 대상이다 */
+  screens: string[];
   /** IA(정보구조) 순서. 대시보드 왼쪽 네비가 오름차순 정렬한다. 낮을수록 위 */
   sequence: number;
   version: number;

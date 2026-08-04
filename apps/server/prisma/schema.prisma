@@ -245,6 +245,9 @@ model Wireframe {
   // 조회 전용 (편집 대상 아님) — html | excalidraw | mermaid | svg
   format    String   @default("html")
   content   String   @db.LongText
+  // content의 data-screen 값들을 적재 시 뽑아 둔 JSON 문자열 배열 (예: ["login","home"]).
+  // 이슈의 screenId 검증과, 본문 없이 화면 목록만 내려주는 용도.
+  screens   String   @default("[]") @db.VarChar(2000)
   // IA(정보구조) 순서. 왼쪽 네비가 오름차순 정렬. 낮을수록 위.
   sequence  Int      @default(0)
   // 같은 name의 재생성마다 증가. 삭제 대신 이력으로 보존한다.
