@@ -1,7 +1,10 @@
 import { useRef, useState } from 'react';
 import type { Issue, IssueStatus } from '@issue-board/shared';
 import { ISSUE_STATUS } from '@issue-board/shared';
-import { ISSUE_STATUS_LABEL as STATUS_LABEL } from '../constants';
+import {
+  ISSUE_STATUS_LABEL as STATUS_LABEL,
+  labelText,
+} from '../constants';
 
 /**
  * 상태별 칸반 컬럼.
@@ -90,7 +93,7 @@ export function IssueBoard({
                 <span className="issue-meta">
                   {issue.labels.map((l) => (
                     <span className="label" key={l}>
-                      {l}
+                      {labelText(l)}
                     </span>
                   ))}
                   {issue.planId && <span className="link-dot" title="기획 연동">📋</span>}

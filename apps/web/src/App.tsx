@@ -20,7 +20,12 @@ import { useBoardEvents } from './api/useBoardEvents';
 import { IssueBoard } from './components/IssueBoard';
 import { IssueTable } from './components/IssueTable';
 import { Select } from './components/Select';
-import { ISSUE_STATUS_LABEL, ISSUE_PRIORITY_LABEL } from './constants';
+import {
+  ISSUE_STATUS_LABEL,
+  ISSUE_PRIORITY_LABEL,
+  POSITIONS,
+  POSITION_LABEL,
+} from './constants';
 import { IssueDrawer } from './components/IssueDrawer';
 import { WireframeViewer } from './components/WireframeViewer';
 import { DomainView } from './components/DomainView';
@@ -49,6 +54,7 @@ const TABS: Tab[] = [
   'design',
 ];
 const TAB_STORAGE_KEY = 'issue-board:tab';
+
 
 /** 프로젝트별 마지막 선택 앱(전달 표면)을 기억하는 localStorage 키 */
 const appStorageKey = (projectId: string) => `issue-board:app:${projectId}`;
@@ -110,6 +116,8 @@ export function App() {
   const [filterStatus, setFilterStatus] = useState<IssueStatus | ''>('');
   const [filterPriority, setFilterPriority] = useState<IssuePriority | ''>('');
   const [filterType, setFilterType] = useState<IssueType | ''>('');
+  // 포지션 필터 — 전체 / front / back
+  const [filterLabel, setFilterLabel] = useState<string>('');
   const [issueQuery, setIssueQuery] = useState('');
   // 와이어프레임은 name으로 묶고, 선택된 이름 + 선택된 버전(id)으로 표시한다.
   const [activeName, setActiveName] = useState<string | null>(null);
@@ -383,6 +391,12 @@ export function App() {
   const visibleWireframes = inApp(wireframes);
   const visibleIssues = inApp(issues);
 
+  // 포지션은 front/back 딱 두 가지다 (issue-spec.md "포지션 분리").
+  // 다른 라벨(infra·qa 등)은 칩으로 보이기만 하고 이 필터의 대상이 아니다.
+  // 라벨이 하나도 없어도 필터는 항상 보인다. 조건부로 숨기면 "포지션이 안 붙었다"는
+  // 사실을 확인하려는 순간에 컨트롤이 사라져 버린다.
+  const activePosition = filterLabel;
+
   const issueQ = issueQuery.trim().toLowerCase();
   const filteredIssues = visibleIssues.filter((i) => {
     if (filterPlanId === '__none__') {
@@ -393,6 +407,7 @@ export function App() {
     if (filterType && i.type !== filterType) return false;
     if (filterStatus && i.status !== filterStatus) return false;
     if (filterPriority && i.priority !== filterPriority) return false;
+    if (activePosition && !i.labels.includes(activePosition)) return false;
     if (issueQ && !`${i.title} ${i.body}`.toLowerCase().includes(issueQ))
       return false;
     return true;
@@ -644,9 +659,25 @@ export function App() {
                             ]}
                           />
                         </div>
+                        <div className="filter-field">
+                          <label>포지션</label>
+                          <Select
+                            ariaLabel="포지션 필터"
+                            value={activePosition}
+                            onChange={(v) => setFilterLabel(v)}
+                            options={[
+                              { value: '', label: '전체' },
+                              ...POSITIONS.map((p) => ({
+                                value: p,
+                                label: POSITION_LABEL[p],
+                              })),
+                            ]}
+                          />
+                        </div>
                         {(filterStatus ||
                           filterPriority ||
                           filterType ||
+                          activePosition ||
                           issueQ ||
                           filterPlanId) && (
                           <span className="muted-hint">

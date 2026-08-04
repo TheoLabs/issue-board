@@ -4,7 +4,8 @@ import type { Wireframe } from '@issue-board/shared';
 /**
  * 조회 전용 와이어프레임 뷰어 (G2).
  *
- * sandbox="allow-scripts": 인라인 <script>로 클릭스루 프로토타입 인터랙션을 허용한다.
+ * sandbox="allow-scripts": 인라인 <script>로 화면 안 인터랙션(다이얼로그·토글·폼 검증)을
+ * 허용한다. 화면 간 이동은 의도적으로 불가 — 각 화면은 독립 문서다.
  * allow-same-origin은 주지 않아 iframe이 고유 origin으로 격리(부모 DOM·쿠키 접근 불가)되므로
  * 로컬에서 생성된 HTML 실행에 안전하다.
  *

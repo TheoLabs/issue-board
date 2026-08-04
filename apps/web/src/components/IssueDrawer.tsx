@@ -11,6 +11,7 @@ import { Select } from './Select';
 import {
   ISSUE_STATUS_LABEL as STATUS_LABEL,
   ISSUE_PRIORITY_LABEL as LEVEL_LABEL,
+  labelText,
 } from '../constants';
 
 /** 이슈 상태 → 드롭다운 트리거 색 tone */
@@ -122,7 +123,7 @@ export function IssueDrawer({
             <span className="issue-meta">
               {issue.labels.map((l) => (
                 <span className="label" key={l}>
-                  {l}
+                  {labelText(l)}
                 </span>
               ))}
             </span>
