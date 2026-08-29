@@ -222,8 +222,16 @@ Service 계층에서 write가 일어날 때 이벤트를 emit → REST/MCP 어�
 | `create_plan` | **최초 기획서 적재** (G3) | write |
 | `create_wireframe` | HTML 와이어프레임 적재 (G3) | write |
 | `create_issue` | 이슈 등록 (최초 분리 + 코딩 중 발견) | write |
-| `update_issue_status` | `todo→in_progress→done` 상태 전이 | write |
+| `update_issue_status` | `todo→in_progress→done` 상태 전이 (하위→상위 자동 롤업) | write |
 | `update_plan` | 기획서 개정 (본문 전체 교체 — 변경을 섹션 안에 녹인다) | write |
+
+> **상위 이슈(에픽) 상태는 하위에서 산출된다.** 하위 이슈의 상태가 바뀌면
+> `IssuesService.update/create`가 부모부터 루트까지 거슬러 올라가며 다시 계산한다 —
+> 하위가 **전부 done이면 상위도 done**, **전부 todo면 그대로**, 그 밖에는 **in_progress**.
+> MCP·대시보드 어느 경로의 write든 이 한 곳을 지나므로 상태가 어긋나지 않는다.
+> 상위도 기획 확정 가드를 받는다 — 상위 기획이 미확정이면 **롤업만 조용히 건너뛴다**
+> (하위의 정당한 전이까지 실패시키지 않기 위해). 상위 본문의 완료 조건 체크박스는
+> 서버가 건드리지 않는다 — 그건 `ib-progress`가 근거를 보고 채운다.
 
 > **최초 생성 흐름(G3)도 이 write 툴들로 이뤄진다.** 별도의 생성 API가 없다 —
 > 터미널에서 Claude Code가 `create_project → create_plan → create_wireframe →
