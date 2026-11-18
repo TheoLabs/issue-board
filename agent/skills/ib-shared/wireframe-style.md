@@ -46,7 +46,22 @@
   .wf-dialog{background:var(--wf-surface);border-radius:var(--wf-radius);
     padding:18px;width:100%;max-width:300px;display:flex;flex-direction:column;gap:12px}
   .wf-dialog-actions{display:flex;gap:8px;justify-content:flex-end}
-  /* 토스트 — 화면 전환 의도·완료 알림 (실제 이동은 하지 않는다) */
+  /* 사이드바(드로어) — 햄버거 메뉴·필터 패널. .wf-dim.wf-dim-left 안에 .wf-drawer */
+  .wf-dim-left{justify-content:flex-start;align-items:stretch;padding:0}
+  .wf-dim-right{justify-content:flex-end;align-items:stretch;padding:0}
+  .wf-drawer{background:var(--wf-surface);width:78%;max-width:300px;height:100%;
+    padding:16px;display:flex;flex-direction:column;gap:var(--wf-gap);
+    animation:wf-slide-x .2s ease-out}
+  .wf-dim-right .wf-drawer{animation-name:wf-slide-x-r}
+  /* 바텀시트 — 선택지·공유·정렬. .wf-dim.wf-dim-bottom 안에 .wf-sheet */
+  .wf-dim-bottom{align-items:flex-end;padding:0}
+  .wf-sheet{background:var(--wf-surface);width:100%;border-radius:16px 16px 0 0;
+    padding:18px 16px 24px;display:flex;flex-direction:column;gap:var(--wf-gap);
+    animation:wf-slide-y .2s ease-out}
+  @keyframes wf-slide-x{from{transform:translateX(-100%)}to{transform:none}}
+  @keyframes wf-slide-x-r{from{transform:translateX(100%)}to{transform:none}}
+  @keyframes wf-slide-y{from{transform:translateY(100%)}to{transform:none}}
+  /* 토스트 — 완료 알림, 없는 화면으로 이동 시 안내 */
   .wf-toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);
     background:var(--wf-ink);color:#fff;padding:10px 14px;border-radius:999px;
     font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
@@ -58,21 +73,28 @@
 </style>
 ```
 
-**인터랙션 스크립트 (필요한 화면에 인라인):**
+**인터랙션 스크립트 (모든 화면에 인라인):**
+
+대시보드 뷰어가 열 때 아래 함수들을 **실제 동작 버전으로 덮어쓴다** — `wfGo`는 그 `data-screen`
+id의 화면으로 전환하고, `wfBack`은 직전 화면으로 돌아가며, 딤(배경) 클릭·Esc로 오버레이가
+닫힌다. 아래 정의는 HTML을 대시보드 밖에서 단독으로 열었을 때를 위한 대체본이다.
 
 ```html
 <script>
-  // 화면 전환 의도: 실제로 이동하지 않고 어디로 가는지만 보여 준다.
-  // (각 화면은 독립 문서이고 iframe이 sandbox="allow-scripts"라 이동 자체가 불가능하다.)
-  function wfGo(label) {
+  // 화면 이동: target은 이동할 화면의 data-screen id (예: 'room-create').
+  // 대시보드 안에서는 실제로 그 화면으로 전환된다. 단독 실행 시엔 토스트만 띄운다.
+  function wfGo(target) {
     const t = document.querySelector('.wf-toast');
-    t.textContent = '→ ' + label + '(으)로 이동';
+    t.textContent = '→ ' + target + '(으)로 이동';
     t.classList.add('show');
     clearTimeout(t._timer);
     t._timer = setTimeout(() => t.classList.remove('show'), 1400);
   }
+  function wfBack() { wfGo('이전 화면'); }
+  // 다이얼로그·사이드바·바텀시트 공통: .wf-dim 요소의 [open]을 켠다/끈다.
   function wfOpen(id) { document.getElementById(id).setAttribute('open', ''); }
   function wfClose(id) { document.getElementById(id).removeAttribute('open'); }
+  function wfToggle(id) { document.getElementById(id).toggleAttribute('open'); }
 </script>
 ```
 
@@ -81,20 +103,34 @@
 ```html
 <body data-screen="<화면id>">
   <div class="wf" style="position:relative">
-    <header class="wf-topbar">← 화면 제목</header>
+    <header class="wf-topbar">
+      <button class="wf-btn" onclick="wfBack()">←</button> 화면 제목
+      <button class="wf-btn" style="margin-left:auto" onclick="wfOpen('menu')">☰</button>
+    </header>
     <main class="wf-body">
       <!-- .wf-title / .wf-card / .wf-input / .wf-btn / .wf-list / .wf-ph 등으로 구성 -->
-      <button class="wf-btn wf-btn-primary" onclick="wfGo('대기실')">참가</button>
+      <button class="wf-btn wf-btn-primary" onclick="wfOpen('confirm')">참가</button>
     </main>
-    <!-- 하단 탭이 있는 앱이면 -->
-    <nav class="wf-tabbar"><button class="active">홈</button><button>...</button></nav>
+    <!-- 하단 탭이 있는 앱이면: 각 탭은 해당 화면으로 이동 -->
+    <nav class="wf-tabbar">
+      <button class="active">홈</button>
+      <button onclick="wfGo('my-page')">내 정보</button>
+    </nav>
+    <!-- 사이드바(드로어): 메뉴 항목은 wfGo로 실제 이동 -->
+    <div class="wf-dim wf-dim-left" id="menu">
+      <aside class="wf-drawer">
+        <div class="wf-title">메뉴</div>
+        <button class="wf-btn" onclick="wfGo('home')">홈</button>
+        <button class="wf-btn" onclick="wfGo('settings')">설정</button>
+      </aside>
+    </div>
     <!-- 다이얼로그·토스트는 .wf 안에 둔다 (position:relative 기준으로 덮는다) -->
     <div class="wf-dim" id="confirm">
       <div class="wf-dialog">
         <div class="wf-title">참가할까요?</div>
         <div class="wf-dialog-actions">
           <button class="wf-btn" onclick="wfClose('confirm')">취소</button>
-          <button class="wf-btn wf-btn-primary" onclick="wfClose('confirm');wfGo('대기실')">참가</button>
+          <button class="wf-btn wf-btn-primary" onclick="wfClose('confirm');wfGo('waiting-room')">참가</button>
         </div>
       </div>
     </div>
@@ -116,7 +152,8 @@
 
 | 상황 | 무엇을 넣는가 |
 | --- | --- |
-| **다른 화면으로 가는 버튼/링크** | 실제로 이동시키지 말고 `wfGo('<가는 화면 이름>')`로 **어디로 가는지 토스트**를 띄운다. 각 화면은 독립 문서이고 iframe이 `sandbox="allow-scripts"`라 이동 자체가 불가능하다. 버튼이 아무 반응 없으면 "미완성"으로 오해받는다. |
+| **다른 화면으로 가는 버튼/링크·탭바·메뉴 항목** | `wfGo('<가는 화면의 data-screen id>')`. 대시보드에서 **실제로 그 화면으로 전환**된다. 화면 이름이 아니라 **id**로 적고, 이번에 만드는 화면 id만 쓴다. 상단 ← 는 `wfBack()`. |
+| **메뉴·필터·상세 옵션** (햄버거, 정렬, 공유 등) | 사이드바는 `.wf-dim.wf-dim-left`(또는 `-right`) + `.wf-drawer`, 선택지는 `.wf-dim.wf-dim-bottom` + `.wf-sheet`. `wfOpen(id)`로 열고 닫기 버튼은 `wfClose(id)`(딤 클릭·Esc는 자동으로 닫힌다). |
 | **되돌릴 수 없는 동작** (삭제·나가기·결제·제출) | `.wf-dim` 확인 다이얼로그를 열어 취소/확인을 보여 준다. |
 | **폼 입력** | `onsubmit="event.preventDefault()"`. 빈 값·형식 오류일 때 `aria-invalid`와 `.wf-error` 메시지를 보여 준다(성공 시엔 `wfGo`). |
 | **탭·토글·아코디언·필터** | 눌린 항목에 `.active`를 옮기고 내용이 실제로 바뀌게 한다. |

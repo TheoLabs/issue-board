@@ -62,8 +62,8 @@ create_wireframe · create_issue에 모두 넘긴다(도메인은 앱 공유이�
   다른 이름으로 부르지 않는다.
 - **화면마다 개별 HTML**을 [wireframe-style.md](../ib-shared/wireframe-style.md)의 공통 스타일·
   인터랙션 스크립트를 인라인해 만든다. 🔴 그 문서의 **"인터랙션 규칙" 표를 화면마다 적용한다**
-  — 누를 수 있는 것은 전부 반응해야 한다(이동 버튼은 `wfGo` 토스트, 되돌릴 수 없는 동작은 확인
-  다이얼로그, 폼은 검증 표시, 목록은 빈 상태). 화면 간 실제 이동은 만들지 않는다(독립 문서).
+  — 누를 수 있는 것은 전부 반응해야 한다(이동 버튼은 `wfGo('<화면id>')`로 실제 화면 전환,
+  메뉴는 사이드바/바텀시트, 되돌릴 수 없는 동작은 확인 다이얼로그, 폼은 검증 표시, 목록은 빈 상태).
 - 적재: 화면마다 `create_wireframe(projectId, name, format="html", content, sequence, applicationId)`.
 - **`data-screen` id ↔ 화면명 매핑을 기억**해 4단계 `screenId` 연동에 쓴다. 적재 응답의
   `screens`가 서버가 인식한 화면 id다 — 4단계에서 그 값만 `screenId`로 쓸 수 있다.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import type {
   Project,
@@ -343,6 +343,54 @@ export function App() {
     },
     [wireframes, navigate],
   );
+
+  // 와이어프레임 안 버튼(wfGo)으로 이동: target은 data-screen id 또는 화면 이름(구버전 호환).
+  // 이름별 최신 버전만 대상으로 하고, 다른 앱의 화면이면 앱 선택도 함께 옮긴다.
+  const wfHistory = useRef<string[]>([]);
+  const showWireframe = useCallback(
+    (w: Wireframe) => {
+      if (applications.length >= 2 && w.applicationId) setSelectedAppId(w.applicationId);
+      setActiveName(w.name);
+      setActiveVersionId(w.id);
+      setGotoScreen(null);
+    },
+    [applications],
+  );
+  const navigateWireframe = useCallback(
+    (target: string): boolean => {
+      const latest: Wireframe[] = [];
+      const seen = new Set<string>();
+      for (const w of wireframes) {
+        if (seen.has(w.name)) continue;
+        seen.add(w.name);
+        latest.push(w);
+      }
+      const t = target.trim();
+      const hit =
+        latest.find((w) => w.content.includes(`data-screen="${t}"`)) ??
+        latest.find((w) => w.name === t);
+      if (!hit) return false;
+      if (activeName && activeName !== hit.name) wfHistory.current.push(activeName);
+      showWireframe(hit);
+      return true;
+    },
+    [wireframes, activeName, showWireframe],
+  );
+  const navigateWireframeBack = useCallback((): boolean => {
+    while (wfHistory.current.length > 0) {
+      const name = wfHistory.current.pop()!;
+      const w = wireframes.find((x) => x.name === name);
+      if (w) {
+        showWireframe(w);
+        return true;
+      }
+    }
+    return false;
+  }, [wireframes, showWireframe]);
+  // 프로젝트가 바뀌면 이동 이력은 무의미하다.
+  useEffect(() => {
+    wfHistory.current = [];
+  }, [selectedId]);
 
   const deleteWireframe = useCallback(
     (wf: Wireframe) => {
@@ -803,6 +851,8 @@ export function App() {
                             <WireframeViewer
                               wireframe={activeWf}
                               gotoScreen={gotoScreen}
+                              onNavigate={navigateWireframe}
+                              onBack={navigateWireframeBack}
                             />
                           ) : null}
                         </div>
